@@ -15,18 +15,18 @@ SOURCES += \
     account_manager.cpp \
     account_record.cpp \
     ai_manager.cpp \
-    login_widget.cpp \
     main.cpp \
     main_window.cpp \
     mainwindow.cpp \
-    register_widget.cpp \
     sqlite_helper.cpp \
     statistics_manager.cpp \
     sync_manager.cpp \
     thread_manager.cpp \
     user.cpp \
     user_info_widget.cpp \
-    user_manager.cpp
+    user_manager.cpp \
+    LoginWidget.cpp \
+    RegisterWidget.cpp
 
 HEADERS += \
     account_add_widget.h \
@@ -34,17 +34,17 @@ HEADERS += \
     account_manager.h \
     account_record.h \
     ai_manager.h \
-    login_widget.h \
     main_window.h \
     mainwindow.h \
-    register_widget.h \
     sqlite_helper.h \
     statistics_manager.h \
     sync_manager.h \
     thread_manager.h \
     user.h \
     user_info_widget.h \
-    user_manager.h
+    user_manager.h \
+    LoginWidget.h \
+    RegisterWidget.h
 
 FORMS += \
     mainwindow.ui
