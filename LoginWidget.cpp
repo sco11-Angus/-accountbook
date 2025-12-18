@@ -1,4 +1,5 @@
 #include "LoginWidget.h"
+#include "RegisterWidget.h"
 #include <QMessageBox>
 #include <QCursor>
 #include <QGradient>
@@ -8,6 +9,7 @@ LoginWidget::LoginWidget(QWidget *parent)
     : QWidget(parent)
     , m_userManager(new UserManager())
 {
+    setObjectName("LoginWidget");
     setWindowTitle("红果记账 - 登录");
     setFixedSize(450, 600); // 匹配XML尺寸
     initUI();
@@ -221,7 +223,8 @@ void LoginWidget::onLoginBtnClicked() {
 }
 
 void LoginWidget::onRegisterBtnClicked() {
-    QMessageBox::information(this, "提示", "新用户注册功能待开发！");
+    RegisterWidget *registerWidget = new RegisterWidget(this);
+    registerWidget->show();
 }
 
 void LoginWidget::onForgotPwdBtnClicked() {

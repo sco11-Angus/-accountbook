@@ -1,5 +1,6 @@
 QT       += core gui
 QT += sql
+QT += core gui widgets core5compat  # 新增 core5compat
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -16,7 +17,6 @@ SOURCES += \
     account_record.cpp \
     ai_manager.cpp \
     main.cpp \
-    main_window.cpp \
     mainwindow.cpp \
     sqlite_helper.cpp \
     statistics_manager.cpp \
@@ -34,7 +34,6 @@ HEADERS += \
     account_manager.h \
     account_record.h \
     ai_manager.h \
-    main_window.h \
     mainwindow.h \
     sqlite_helper.h \
     statistics_manager.h \
