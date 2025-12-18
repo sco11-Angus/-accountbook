@@ -21,6 +21,15 @@ SqliteHelper* SqliteHelper::getInstance() {
 }
 
 bool SqliteHelper::openDatabase(const QString& dbPath) {
+    //检查连接是否已存在，存在则直接返回
+    if (QSqlDatabase::contains("qt_sql_default_connection")) {
+        m_db = QSqlDatabase::database("qt_sql_default_connection");
+        // 如果连接已关闭，重新打开
+        if (m_db.isOpen()) return true;
+        else return m_db.open(); // 重新打开失败则返回false
+    }
+
+    // 连接不存在时，新建连接
     m_db = QSqlDatabase::addDatabase("QSQLITE");
     m_db.setDatabaseName(dbPath);
     if (!m_db.open()) {
