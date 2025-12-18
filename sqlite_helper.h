@@ -7,7 +7,6 @@
 #include <QMutex>
 #include <QString>
 
-// 单例模式封装SQLite操作
 class SqliteHelper {
 public:
     // 获取单例实例
