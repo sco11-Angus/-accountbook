@@ -33,8 +33,6 @@ private:
 
     // 核心业务逻辑
     UserManager* m_userManager;
-
-    // UI控件
     QLabel* m_titleLabel;          // 红果记账标题
     QFrame* m_loginCard;           // 登录卡片
     QLineEdit* m_accountEdit;      // 账号输入框

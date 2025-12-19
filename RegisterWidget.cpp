@@ -88,7 +88,7 @@ void RegisterWidget::initUI() {
     // 间隔器
     mainLayout->addStretch();
 
-    // 连接返回按钮信号（修正原错误连接）
+    // 连接返回按钮信号
     connect(m_backBtn, &QPushButton::clicked, this, &RegisterWidget::onBackBtnClicked);
 
     // 提示标签

@@ -1,6 +1,5 @@
 #ifndef REGISTERWIDGET_H
 #define REGISTERWIDGET_H
-
 #include <QWidget>
 #include <QLineEdit>
 #include <QPushButton>
@@ -41,6 +40,12 @@ private:
     QTimer *m_countdownTimer;      // 倒计时定时器
     int m_countdownSeconds;        // 倒计时秒数
     QPushButton *m_backBtn;        // 返回按钮
+};
+
+class register_widget
+{
+public:
+    register_widget();
 };
 
 #endif // REGISTERWIDGET_H

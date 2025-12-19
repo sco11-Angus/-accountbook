@@ -234,7 +234,7 @@ void LoginWidget::onRegisterBtnClicked() {
     regWidget->setAttribute(Qt::WA_DeleteOnClose); // 关闭时自动释放内存，避免内存泄漏
 
     // 3. 调整注册窗口位置：居中屏幕（或偏移登录窗口，避免重叠）
-    QRect screenRect = QGuiApplication::primaryScreen()->geometry();
+    QRect screenRect = QApplication::primaryScreen()->geometry();
     int x = (screenRect.width() - regWidget->width()) / 2;
     int y = (screenRect.height() - regWidget->height()) / 2;
     regWidget->move(x, y); // 居中屏幕显示，彻底避免和登录窗口重叠
