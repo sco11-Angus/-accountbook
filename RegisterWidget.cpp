@@ -166,16 +166,18 @@ void RegisterWidget::initStyleSheet() {
             color: #9E9E9E;
         }
         QPushButton#m_backBtn {
-            background-color: #F5F5F5;
+            background-color: #A8E6CF;
             color: #4A4A4A;
             border-radius: 15px;
-            font-size: 14px;
-            padding: 10px;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 12px;
             border: none;
-            margin-top: 10px;
+            font-family: "Microsoft YaHei";
         }
         QPushButton#m_backBtn:hover {
-            background-color: #E0E0E0;
+            background-color: #98D8BF;
+            box-shadow: 0 4px 12px rgba(168, 230, 207, 0.3);
         }
     )");
 }
