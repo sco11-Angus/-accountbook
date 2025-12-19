@@ -4,6 +4,9 @@
 #include <QCursor>
 #include <QGradient>
 #include <QPalette>
+#include <QApplication>
+#include <QGuiApplication>
+#include <QScreen>
 
 LoginWidget::LoginWidget(QWidget *parent)
     : QWidget(parent)
@@ -223,8 +226,32 @@ void LoginWidget::onLoginBtnClicked() {
 }
 
 void LoginWidget::onRegisterBtnClicked() {
-    RegisterWidget *registerWidget = new RegisterWidget(this);
-    registerWidget->show();
+    // 1. 创建注册窗口，设置为独立窗口（无父窗口，避免重叠）
+    RegisterWidget* regWidget = new RegisterWidget(nullptr);
+
+    // 2. 设置窗口属性：独立窗口、模态（阻塞登录窗口操作）
+    regWidget->setWindowModality(Qt::ApplicationModal); // 应用级模态，整个程序只有注册窗口可操作
+    regWidget->setAttribute(Qt::WA_DeleteOnClose); // 关闭时自动释放内存，避免内存泄漏
+
+    // 3. 调整注册窗口位置：居中屏幕（或偏移登录窗口，避免重叠）
+    QRect screenRect = QGuiApplication::primaryScreen()->geometry();
+    int x = (screenRect.width() - regWidget->width()) / 2;
+    int y = (screenRect.height() - regWidget->height()) / 2;
+    regWidget->move(x, y); // 居中屏幕显示，彻底避免和登录窗口重叠
+
+    // 4. 绑定信号：注册成功后自动填充账号到登录界面
+    connect(regWidget, &RegisterWidget::registerSuccess, this, [=](const QString& account) {
+        m_accountEdit->setText(account); // 填充账号
+        this->activateWindow(); // 激活登录窗口（回到前台）
+    });
+
+    // 5. 绑定信号：返回登录时激活登录窗口
+    connect(regWidget, &RegisterWidget::backToLogin, this, [=]() {
+        this->activateWindow(); // 登录窗口回到前台
+    });
+
+    // 6. 显示注册窗口
+    regWidget->show();
 }
 
 void LoginWidget::onForgotPwdBtnClicked() {

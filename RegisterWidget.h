@@ -19,6 +19,11 @@ private slots:
     void onRegisterBtnClicked();
     void onGetCodeBtnClicked();
     void updateCountdown();
+    void onBackBtnClicked();
+
+signals:
+    void backToLogin();
+    void registerSuccess(const QString& account);
 
 private:
     void initUI();
@@ -35,6 +40,7 @@ private:
     QLabel *m_tipLabel;            // 提示标签
     QTimer *m_countdownTimer;      // 倒计时定时器
     int m_countdownSeconds;        // 倒计时秒数
+    QPushButton *m_backBtn;        // 返回按钮
 };
 
 #endif // REGISTERWIDGET_H

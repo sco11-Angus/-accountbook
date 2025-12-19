@@ -9,6 +9,7 @@ RegisterWidget::RegisterWidget(QWidget *parent)
     , m_countdownTimer(new QTimer(this))
     , m_countdownSeconds(60) {
     setObjectName("RegisterWidget");
+    setWindowFlags(Qt::Window | Qt::WindowCloseButtonHint); // 显示关闭按钮，且为独立窗口
     setWindowTitle("红果记账 - 注册");
     setFixedSize(450, 600);
     initUI();
@@ -77,6 +78,18 @@ void RegisterWidget::initUI() {
     cardLayout->addWidget(m_registerBtn);
 
     mainLayout->addWidget(registerCard);
+
+    // 注册按钮下方添加返回按钮
+    m_backBtn = new QPushButton("返回登录");
+    m_backBtn->setObjectName("m_backBtn");
+    m_backBtn->setCursor(Qt::PointingHandCursor);
+    cardLayout->addWidget(m_backBtn);  // 添加到卡片布局
+
+    // 间隔器
+    mainLayout->addStretch();
+
+    // 连接返回按钮信号（修正原错误连接）
+    connect(m_backBtn, &QPushButton::clicked, this, &RegisterWidget::onBackBtnClicked);
 
     // 提示标签
     m_tipLabel = new QLabel("");
@@ -151,6 +164,18 @@ void RegisterWidget::initStyleSheet() {
         QPushButton#m_getCodeBtn:disabled {
             background-color: #E0E0E0;
             color: #9E9E9E;
+        }
+        QPushButton#m_backBtn {
+            background-color: #F5F5F5;
+            color: #4A4A4A;
+            border-radius: 15px;
+            font-size: 14px;
+            padding: 10px;
+            border: none;
+            margin-top: 10px;
+        }
+        QPushButton#m_backBtn:hover {
+            background-color: #E0E0E0;
         }
     )");
 }
@@ -227,8 +252,14 @@ void RegisterWidget::onRegisterBtnClicked() {
     bool success = m_userManager->registerUser(account, password, code);
     if (success) {
         QMessageBox::information(this, "注册成功", "账号注册成功，请登录！");
+        emit registerSuccess(account);  // 发射注册成功信号
         close();
     } else {
         m_tipLabel->setText("注册失败，可能是账号已存在或验证码错误");
     }
+}
+
+void RegisterWidget::onBackBtnClicked() {
+    emit backToLogin(); // 发送返回信号
+    close(); // 关闭注册窗口（触发WA_DeleteOnClose释放内存）
 }
