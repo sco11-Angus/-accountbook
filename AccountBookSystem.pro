@@ -1,14 +1,7 @@
-QT       += core gui
-QT += sql
-QT += core gui widgets core5compat  # 新增 core5compat
-
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+QT       += core gui sql widgets
 
 CONFIG += c++17
 
-# You can make your code fail to compile if it uses deprecated APIs.
-# In order to do so, uncomment the following line.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
     account_add_widget.cpp \
@@ -16,15 +9,22 @@ SOURCES += \
     account_manager.cpp \
     account_record.cpp \
     ai_manager.cpp \
+    bill_handler.cpp \
+    bill_sync_client.cpp \
     main.cpp \
     mainwindow.cpp \
+    server_main.cpp \
     sqlite_helper.cpp \
     statistics_manager.cpp \
     sync_manager.cpp \
+    tcp_server.cpp \
+    tcpclient.cpp \
     thread_manager.cpp \
     user.cpp \
+    user_handler.cpp \
     user_info_widget.cpp \
     user_manager.cpp \
+    user_sync_client.cpp \
     LoginWidget.cpp \
     RegisterWidget.cpp
 
@@ -34,14 +34,21 @@ HEADERS += \
     account_manager.h \
     account_record.h \
     ai_manager.h \
+    bill_handler.h \
+    bill_sync_client.h \
     mainwindow.h \
+    server_main.h \
     sqlite_helper.h \
     statistics_manager.h \
     sync_manager.h \
+    tcp_server.h \
+    tcpclient.h \
     thread_manager.h \
     user.h \
+    user_handler.h \
     user_info_widget.h \
     user_manager.h \
+    user_sync_client.h \
     LoginWidget.h \
     RegisterWidget.h
 
