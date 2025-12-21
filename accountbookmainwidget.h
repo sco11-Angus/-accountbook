@@ -15,11 +15,20 @@ class AccountBookMainWidget : public QWidget
 {
     Q_OBJECT
 public:
+    QPushButton *m_addBtn;
     explicit AccountBookMainWidget(QWidget *parent = nullptr);
+    void updateBillData(const QList<QMap<QString, QString>>& billList);
 
 private:
     void initUI();
     void initStyleSheet();
+
+    // 工具函数 - 创建单个账单项（核心动态生成逻辑）
+    QWidget* createBillItemWidget(const QString& date, const QString& cateIcon,
+                                  const QString& cateName, const QString& time,
+                                  const QString& amount, bool isExpense);
+    // 更新收支统计（总支出/总收入/结余）
+    void updateStatistic(double totalExpense, double totalIncome);
 
     // 顶部控件
     QComboBox *m_bookSwitchCombo; // 账本切换
@@ -42,9 +51,6 @@ private:
     QPushButton *m_bookNavBtn;    // 账本（默认选中）
     QPushButton *m_assetNavBtn;   // 资产
     QPushButton *m_statNavBtn;    // 统计
-
-    // 右下角加号按钮
-    QPushButton *m_addBtn;
 };
 
 #endif // ACCOUNTBOOKMAINWIDGET_H
