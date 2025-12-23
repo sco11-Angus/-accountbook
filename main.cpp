@@ -1,8 +1,7 @@
 #include "LoginWidget.h"
 #include "MainWindow.h"
 #include <QApplication>
-#include "AccountBookMainWidget.h"
-#include "AccountBookRecordWidget.h"
+#include "accountbookrecordwidget.h"
 
 int main(int argc, char *argv[])
 {

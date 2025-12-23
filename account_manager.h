@@ -33,11 +33,27 @@ public:
                                             bool isDeleted = false);
     // 获取预设收支类型
     QStringList getPresetTypes();
+    // 按日期范围查询
+    QList<AccountRecord> queryRecordsByDateRange(int userId,
+                                                 const QDate& startDate,
+                                                 const QDate& endDate,
+                                                 bool isDeleted = false);
+    // 按金额范围查询
+    QList<AccountRecord> queryRecordsByAmountRange(int userId,
+                                                   double minAmount,
+                                                   double maxAmount,
+                                                   bool isDeleted = false);
+    // 按类型查询
+    QList<AccountRecord> queryRecordsByType(int userId,
+                                            const QString& type,
+                                            bool isDeleted = false);
+    // 按月份查询
+    QList<AccountRecord> queryMonthlyRecords(int userId, int year, int month, bool isDeleted = false);
+    // 获取记录总数
+    int getRecordCount(int userId, bool isDeleted = false);
 
 private:
-    SqliteHelper* m_dbHelper;
-    // 预设收支类型
-    QStringList m_presetTypes = {"餐饮", "交通", "娱乐", "薪资", "购物", "房租", "水电", "医疗", "理财", "其他"};
+    SqliteHelper* m_dbHelper = SqliteHelper::getInstance();
 };
 
 #endif // ACCOUNT_MANAGER_H

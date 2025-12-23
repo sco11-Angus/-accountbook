@@ -1,4 +1,3 @@
-// account_manager.cpp
 #include "account_manager.h"
 
 AccountManager::AccountManager() {
@@ -123,6 +122,40 @@ QList<AccountRecord> AccountManager::queryAccountRecord(int userId,
     return records;
 }
 
-QStringList AccountManager::getPresetTypes() {
-    return m_presetTypes;
+//按日期范围查询
+QList<AccountRecord> AccountManager::queryRecordsByDateRange(int userId,
+                                                             const QDate& startDate,
+                                                             const QDate& endDate,
+                                                             bool isDeleted) {
+    QString start = startDate.toString("yyyy-MM-dd 00:00:00");
+    QString end = endDate.toString("yyyy-MM-dd 23:59:59");
+
+    return queryAccountRecord(userId, start + "-" + end, "", 0, 0, isDeleted);
+}
+
+//按类型查询
+QList<AccountRecord> AccountManager::queryRecordsByType(int userId,
+                                                        const QString& type,
+                                                        bool isDeleted) {
+    return queryAccountRecord(userId, "", type, 0, 0, isDeleted);
+}
+
+//获取指定月份的所有记录
+QList<AccountRecord> AccountManager::queryMonthlyRecords(int userId, int year, int month, bool isDeleted) {
+    QDate firstDayOfMonth(year, month, 1);
+    QDate lastDayOfMonth = firstDayOfMonth.addMonths(1).addDays(-1);
+
+    return queryRecordsByDateRange(userId, firstDayOfMonth, lastDayOfMonth, isDeleted);
+}
+
+// 获取记录总数
+int AccountManager::getRecordCount(int userId, bool isDeleted) {
+    QString sql = QString("SELECT COUNT(*) FROM account_record WHERE user_id = %1 AND is_deleted = %2")
+    .arg(userId).arg(isDeleted ? 1 : 0);
+
+    QSqlQuery query = m_dbHelper->executeQuery(sql);
+    if (query.next()) {
+        return query.value(0).toInt();
+    }
+    return 0;
 }

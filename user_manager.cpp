@@ -101,9 +101,9 @@ bool UserManager::isAccountLocked(const QString& account) {
     QString lockTime = query.value("lock_time").toString();
     if (lockTime.isEmpty()) return false;
 
-    // 锁定时间超过1小时则自动解锁
+    // 锁定时间超过5秒则自动解锁
     QDateTime lockDt = QDateTime::fromString(lockTime, "yyyy-MM-dd HH:mm:ss");
-    if (lockDt.secsTo(QDateTime::currentDateTime()) >= 3600) {
+    if (lockDt.secsTo(QDateTime::currentDateTime()) >= 5) {
         unlockAccount(account);
         return false;
     }

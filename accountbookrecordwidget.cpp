@@ -1,8 +1,7 @@
-#include "AccountBookRecordWidget.h"
+#include "accountbookrecordWidget.h"
 #include <QFont>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-
 
 AccountBookRecordWidget::AccountBookRecordWidget(QWidget *parent)
     : QWidget(parent)

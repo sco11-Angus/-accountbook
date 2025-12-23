@@ -1,5 +1,4 @@
-#include "AccountBookMainWidget.h"
-#include "AccountBookRecordWidget.h"
+#include "accountbookmainwidget.h"
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>

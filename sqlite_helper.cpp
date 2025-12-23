@@ -1,7 +1,12 @@
 #include "sqlite_helper.h"
 #include <QDebug>
+#include <QSqlQuery>
+#include <QSqlError>
+#include <QFile>
+#include <QDir>
+#include <QDateTime>
 
-// 静态成员变量初始化（全局只有一个）
+// 静态成员初始化
 SqliteHelper* SqliteHelper::m_instance = nullptr;
 QMutex SqliteHelper::m_mutex;
 
@@ -11,108 +16,80 @@ SqliteHelper::~SqliteHelper() {
     closeDatabase();
 }
 
-
-
-// 获取唯一实例的方法
 SqliteHelper* SqliteHelper::getInstance() {
-    if (m_instance == nullptr) {  // 第一次检查
-        m_mutex.lock();           // 加锁，防止多线程同时创建
-        if (m_instance == nullptr) {  // 第二次检查（双重检查锁定）
-            m_instance = new SqliteHelper();  // 真正创建实例
+    if (m_instance == nullptr) {
+        m_mutex.lock();
+        if (m_instance == nullptr) {
+            m_instance = new SqliteHelper();
         }
-        m_mutex.unlock();         // 解锁
+        m_mutex.unlock();
     }
-    return m_instance;  // 返回唯一实例
+    return m_instance;
 }
 
 bool SqliteHelper::openDatabase(const QString& dbPath) {
-<<<<<<< HEAD
-    m_dbPath = dbPath;// 保存数据库文件路径
-
-    // 检查连接是否已存在
-    if (QSqlDatabase::contains("qt_sql_default_connection")) {//在Qt中，每个数据库连接都有一个唯一的名称。"qt_sql_default_connection"是Qt提供的默认连接名称
-        m_db = QSqlDatabase::database("qt_sql_default_connection");
-        if (m_db.isOpen()) return true;  // 已打开就直接返回
-        else return m_db.open();  // 关闭了就重新打开
-    }
-
-    // 创建新的数据库连接
-    m_db = QSqlDatabase::addDatabase("QSQLITE");  // 指定使用SQLite数据库
-    m_db.setDatabaseName(dbPath);  // 设置数据库文件路径
-
-=======
     m_dbPath = dbPath;
 
     // 检查连接是否已存在
     if (QSqlDatabase::contains("qt_sql_default_connection")) {
         m_db = QSqlDatabase::database("qt_sql_default_connection");
-        if (m_db.isOpen()) return true;
-        else return m_db.open();
+        if (m_db.isOpen()) return true;  // 已打开直接返回
+        else return m_db.open();  // 关闭状态则重新打开
     }
 
-    // 新建连接
+    // 创建新连接
     m_db = QSqlDatabase::addDatabase("QSQLITE");
     m_db.setDatabaseName(dbPath);
->>>>>>> 4f6bfafe4ffe57ac98eac4fc61f27970f3752b1f
+
     if (!m_db.open()) {
         m_lastError = "数据库打开失败：" + m_db.lastError().text();
         qDebug() << m_lastError;
         return false;
     }
 
-<<<<<<< HEAD
-    // 启用外键约束,外键约束是一种用于在两个表之间建立关系的数据库约束。它确保一个表中的某个
-    //列（或一组列）的值必须在另一个表的主键或唯一键列中存在。这种关系有助于维护数据的完整性和一致性。
-=======
-    // 启用外键约束
->>>>>>> 4f6bfafe4ffe57ac98eac4fc61f27970f3752b1f
+    // 启用外键约束（保障用户与收支记录的关联完整性）
     enableForeignKeys();
-
+    
     // 创建用户表
     QString createUserTable = R"(
         CREATE TABLE IF NOT EXISTS user (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
+            account TEXT UNIQUE NOT NULL,  -- 手机号/邮箱，唯一
+            password TEXT NOT NULL,       -- 加密存储
             nickname TEXT DEFAULT '默认昵称',
-            avatar TEXT DEFAULT '',
-            gender INTEGER DEFAULT 0,
-            pay_method TEXT DEFAULT '',
-            login_fail_count INTEGER DEFAULT 0,
-            lock_time TEXT DEFAULT '',
-            create_time TEXT NOT NULL
+            avatar TEXT DEFAULT '',       -- 头像路径
+            gender INTEGER DEFAULT 0,     -- 0:未知 1:男 2:女
+            pay_method TEXT DEFAULT '',   -- 常用支付方式
+            login_fail_count INTEGER DEFAULT 0,  -- 登录失败次数
+            lock_time TEXT DEFAULT '',    -- 账号锁定时间
+            create_time TEXT NOT NULL     -- 创建时间
         );
     )";
     if (!executeSql(createUserTable)) return false;
 
-    // 创建收支记录表
+    // 创建收支记录表（支持软删除、凭证存储等）
     QString createAccountTable = R"(
         CREATE TABLE IF NOT EXISTS account_record (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            amount REAL NOT NULL,
-            type TEXT NOT NULL,
-            is_income INTEGER NOT NULL DEFAULT 0,
-            remark TEXT DEFAULT '',
-            voucher_path TEXT DEFAULT '',
-            is_deleted INTEGER DEFAULT 0,
-            delete_time TEXT DEFAULT '',
-            create_time TEXT NOT NULL,
-            modify_time TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+            user_id INTEGER NOT NULL,      -- 关联用户ID
+            amount REAL NOT NULL,          -- 金额（正数收入/负数支出）
+            type TEXT NOT NULL,            -- 收支类型（餐饮/交通等）
+            is_income INTEGER NOT NULL DEFAULT 0,  -- 1:收入 0:支出
+            remark TEXT DEFAULT '',        -- 备注
+            voucher_path TEXT DEFAULT '',  -- 凭证图片路径
+            is_deleted INTEGER DEFAULT 0,  -- 0:正常 1:回收站（软删除）
+            delete_time TEXT DEFAULT '',   -- 删除时间（用于7天自动清理）
+            create_time TEXT NOT NULL,     -- 创建时间
+            modify_time TEXT NOT NULL,     -- 修改时间
+            FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE  -- 级联删除
         );
-<<<<<<< HEAD
-    )";//外键约束理解：FOREIGN KEY (user_id) REFERENCES user(id)确保每条收支记录都对应一个真实存在的用户。
-
-=======
     )";
->>>>>>> 4f6bfafe4ffe57ac98eac4fc61f27970f3752b1f
     if (!executeSql(createAccountTable)) return false;
 
-    // 创建索引
+    // 创建索引提升查询性能
     createIndexes();
 
-    // 初始化版本管理
+    // 初始化数据库版本（用于后续 schema 升级）
     initializeVersion();
 
     qDebug() << "数据库初始化成功：" << dbPath;
@@ -150,12 +127,9 @@ bool SqliteHelper::executeSqlWithParams(const QString& sql, const QVariantList& 
 }
 
 QSqlQuery SqliteHelper::executeQuery(const QString& sql) {
+    QMutexLocker locker(&m_mutex);  // 线程安全
     QSqlQuery query(m_db);
-<<<<<<< HEAD
-    if (!query.exec(sql)) {//exec() 方法将 SQL 语句发送到数据库并执行它
-=======
     if (!query.exec(sql)) {
->>>>>>> 4f6bfafe4ffe57ac98eac4fc61f27970f3752b1f
         m_lastError = "SQL查询失败：" + sql + " 错误：" + query.lastError().text();
         qDebug() << m_lastError;
     }

@@ -33,7 +33,6 @@ public:
     void logout();
     // 获取当前登录用户
     User getCurrentUser() { return m_currentUser; }
-
 private:
     // 密码加密（MD5）
     QString encryptPassword(const QString& password);
