@@ -85,6 +85,10 @@ private:
     QString m_firstOperandText;  // 第一个操作数文本
     QString m_secondOperandText; // 第二个操作数文本
     QString opToString(Op op) const; // 运算符转字符串
+
+    QString m_selectedCategory; // 选中的分类（如“餐饮”）
+    bool m_isExpense;           // 是否为支出（true=支出，false=收入）
+    int m_currentUserId;        // 当前登录用户ID
 };
 
 #endif // ACCOUNTBOOKRECORDWIDGET_H

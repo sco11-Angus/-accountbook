@@ -1,4 +1,9 @@
 #include "accountbookrecordwidget.h"
+#include "business_logic.h"
+#include "account_record.h"
+#include "account_manager.h"
+#include "user_manager.h"
+#include <QMessageBox>
 #include <QFont>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -21,6 +26,10 @@ AccountBookRecordWidget::AccountBookRecordWidget(QWidget *parent)
     setFixedSize(450, 650);
     initUI();
     initStyleSheet();
+
+    // 获取当前登录用户ID
+    UserManager userManager;
+    m_currentUserId = userManager.getCurrentUser().getId();
 }
 
 QPushButton* AccountBookRecordWidget::createCateBtn(const QString& text, const QString& color)
@@ -40,6 +49,13 @@ QPushButton* AccountBookRecordWidget::createCateBtn(const QString& text, const Q
         }
     )").arg(color));
     btn->setCheckable(true);
+
+    // 绑定点击事件，记录选中分类
+    connect(btn, &QPushButton::clicked, this, [=](){
+        m_selectedCategory = text;
+        // 标记收支类型（根据当前标签页）
+        m_isExpense = (m_tabWidget->currentIndex() == 0);
+    });
     return btn;
 }
 
@@ -368,18 +384,41 @@ void AccountBookRecordWidget::createKeyboard()
 
     // 完成按钮点击事件
     connect(m_completeBtn, &QPushButton::clicked, this, [=](){
-        // 格式化金额为两位小数
+        // 1. 提取金额（去除“¥”，转换为double，支出为负）
         QLineEdit *edit = getCurrentAmountEdit();
         QString text = edit->text().remove("¥");
         bool ok;
         double amount = text.toDouble(&ok);
-        if (ok) {
-            edit->setText(QString("¥%1").arg(amount, 0, 'f', 2));
+        if (!ok || amount == 0) {
+            QMessageBox::warning(this, "错误", "请输入有效的金额（非0）");
+            return;
+        }
+        // 支出金额转为负数
+        if (m_isExpense) amount = -amount;
+
+        // 2. 业务校验（分类、用户ID、金额）
+        BusinessLogic logic;
+        AccountRecord record;
+        record.setUserId(m_currentUserId);
+        record.setAmount(amount);
+        record.setType(m_selectedCategory);
+        record.setCreateTime(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
+        record.setModifyTime(record.getCreateTime());
+
+        if (!logic.validateBillRecord(record)) {
+            QMessageBox::warning(this, "错误", logic.getValidationError());
+            return;
         }
 
-        // 原有逻辑（写入数据库、发信号、关闭窗口）
-        emit billRecorded();
-        this->close();
+        // 3. 保存到数据库（调用AccountManager）
+        AccountManager accountManager;
+        if (accountManager.addAccountRecord(record)) {
+            QMessageBox::information(this, "成功", "记账记录已保存");
+            emit billRecorded(); // 通知主界面更新
+            this->close();
+        } else {
+            QMessageBox::critical(this, "失败", "保存失败：" + SqliteHelper::getInstance()->getLastError());
+        }
     });
 }
 

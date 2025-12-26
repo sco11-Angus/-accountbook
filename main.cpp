@@ -1,7 +1,11 @@
 #include "LoginWidget.h"
 #include "MainWindow.h"
+#include "account_manager.h"
+#include "account_record.h"
+#include "AccountBookRecordWidget.h"
+#include "AccountBookMainWidget.h"
 #include <QApplication>
-#include "accountbookrecordwidget.h"
+#include <QObject>
 
 int main(int argc, char *argv[])
 {
@@ -27,26 +31,33 @@ int main(int argc, char *argv[])
 
     // 4. 记账完成后更新账单数据（原来的全局connect移到这里）
     QObject::connect(&recordWidget, &AccountBookRecordWidget::billRecorded, &bookMainWidget, [&](){
-        // 模拟账单数据（实际从数据库读取）
+        // 1. 获取当前登录用户ID
+        UserManager userManager;
+        int userId = userManager.getCurrentUser().getId();
+        if (userId <= 0) return;
+
+        // 2. 查询当前月份的真实账单（调用AccountManager）
+        AccountManager accountManager;
+        QDate currentDate = QDate::currentDate();
+        QList<AccountRecord> records = accountManager.queryMonthlyRecords(
+            userId, currentDate.year(), currentDate.month()
+            );
+
+        // 3. 转换为界面所需的QList<QMap<QString, QString>>格式
         QList<QMap<QString, QString>> billList;
-        QMap<QString, QString> bill1;
-        bill1["date"] = "12/18 星期四";
-        bill1["cateIcon"] = "餐";
-        bill1["cateName"] = "餐饮-三餐";
-        bill1["time"] = "18:07 · 晚";
-        bill1["amount"] = "13.00";
-        bill1["isExpense"] = "true";
-        billList.append(bill1);
+        for (const AccountRecord& record : records) {
+            QMap<QString, QString> bill;
+            QDate createDate = QDate::fromString(record.getCreateTime(), "yyyy-MM-dd HH:mm:ss");
+            bill["date"] = createDate.toString("MM/dd dddd");
+            bill["cateIcon"] = record.getType().left(1); // 分类首字（如“餐饮”→“餐”）
+            bill["cateName"] = record.getType();
+            bill["time"] = record.getCreateTime().mid(11, 5) + " · " + (record.getCreateTime().mid(11, 2).toInt() >= 18 ? "晚" : "下午");
+            bill["amount"] = QString::number(qAbs(record.getAmount()), 'f', 2); // 显示绝对值
+            bill["isExpense"] = (record.getAmount() < 0) ? "true" : "false";
+            billList.append(bill);
+        }
 
-        QMap<QString, QString> bill2;
-        bill2["date"] = "12/18 星期四";
-        bill2["cateIcon"] = "奖";
-        bill2["cateName"] = "奖金-奖学金";
-        bill2["time"] = "18:44 · 下午";
-        bill2["amount"] = "1000.00";
-        bill2["isExpense"] = "false";
-        billList.append(bill2);
-
+        // 4. 更新主界面账单
         bookMainWidget.updateBillData(billList);
     });
 
