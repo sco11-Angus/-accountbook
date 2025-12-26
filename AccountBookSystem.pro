@@ -14,6 +14,8 @@ SOURCES += \
     bill_handler.cpp \
     bill_sync_client.cpp \
     business_logic.cpp \
+    database_example.cpp \
+    db_manager.cpp \
     main.cpp \
     mainwindow.cpp \
     mysql_helper.cpp \
@@ -44,6 +46,9 @@ HEADERS += \
     bill_handler.h \
     bill_sync_client.h \
     business_logic.h \
+    database_example.h \
+    db_manager.h \
+    db_models.h \
     mainwindow.h \
     mysql_helper.h \
     server_main.h \
