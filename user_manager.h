@@ -32,6 +32,10 @@ public:
     // 安全退出（清除本地缓存）
     void logout();
     // 获取当前登录用户
+    void setCurrentUser(const User& user) {  // 保存当前登录用户
+        m_currentUser = user;
+    }
+
     User getCurrentUser() { return m_currentUser; }
 private:
     // 密码加密（MD5）

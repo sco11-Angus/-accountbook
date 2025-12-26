@@ -208,13 +208,15 @@ void LoginWidget::onLoginBtnClicked() {
 
     // 检查账号是否锁定
     if (m_userManager->isAccountLocked(account)) {
-        m_tipLabel->setText("账号已锁定！1小时后自动解锁");
+        m_tipLabel->setText("账号已锁定！5s后自动解锁");
         return;
     }
 
     // 执行登录逻辑
     User user = m_userManager->login(account, password, m_rememberPwdCheck->isChecked());
     if (user.getId() > 0) {
+        UserManager userManager;
+        userManager.setCurrentUser(user);
         m_tipLabel->setText("");
         emit loginSuccess(user);
         close();
