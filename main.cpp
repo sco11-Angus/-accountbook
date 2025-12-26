@@ -22,18 +22,11 @@ int main(int argc, char *argv[])
         loginWidget.close(); // 关闭登录窗口，避免后台残留
     });
 
-    // 主函数/主界面初始化时，绑定信号槽
-    AccountBookMainWidget mainWidget;
-
-    QObject::connect(bookMainWidget.m_addBtn, &QPushButton::clicked, [&](){
-        recordWidget.show();
-    });
-
     // 4. 记账完成后更新账单数据（原来的全局connect移到这里）
     QObject::connect(&recordWidget, &AccountBookRecordWidget::billRecorded, &bookMainWidget, [&](){
         // 1. 获取当前登录用户ID
-        UserManager userManager;
-        int userId = userManager.getCurrentUser().getId();
+        UserManager* userManager = UserManager::getInstance();
+        int userId = userManager->getCurrentUser().getId();
         if (userId <= 0) return;
 
         // 2. 查询当前月份的真实账单（调用AccountManager）

@@ -10,7 +10,7 @@
 
 LoginWidget::LoginWidget(QWidget *parent)
     : QWidget(parent)
-    , m_userManager(new UserManager())
+    , m_userManager(UserManager::getInstance())
 {
     setObjectName("LoginWidget");
     setWindowTitle("红果记账 - 登录");
@@ -215,8 +215,7 @@ void LoginWidget::onLoginBtnClicked() {
     // 执行登录逻辑
     User user = m_userManager->login(account, password, m_rememberPwdCheck->isChecked());
     if (user.getId() > 0) {
-        UserManager userManager;
-        userManager.setCurrentUser(user);
+       m_userManager->setCurrentUser(user);
         m_tipLabel->setText("");
         emit loginSuccess(user);
         close();

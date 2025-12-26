@@ -5,7 +5,7 @@
 
 RegisterWidget::RegisterWidget(QWidget *parent)
     : QWidget(parent)
-    , m_userManager(new UserManager())
+    , m_userManager(UserManager::getInstance())
     , m_countdownTimer(new QTimer(this))
     , m_countdownSeconds(60) {
     setObjectName("RegisterWidget");

@@ -18,8 +18,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_bookWidget = new AccountBookMainWidget(this);
     QObject::connect(m_bookWidget->m_addBtn, &QPushButton::clicked, this, [this]() {
         // 1. 校验当前是否有登录用户
-        UserManager userManager;
-        int currentUserId = userManager.getCurrentUser().getId();
+        UserManager* userManager = UserManager::getInstance();
+        int currentUserId = userManager->getCurrentUser().getId();
 
         // 2. 未登录则提示并拦截
         if (currentUserId <= 0) {

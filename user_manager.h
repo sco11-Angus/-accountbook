@@ -6,10 +6,15 @@
 #include <QString>
 #include <QDateTime>
 #include <QCryptographicHash>
+#include <QMutex>
 
 class UserManager {
 public:
-    UserManager();
+    // 单例获取方法
+    static UserManager* getInstance();
+    // 禁用拷贝构造和赋值（防止实例复制）
+    UserManager(const UserManager&) = delete;
+    UserManager& operator=(const UserManager&) = delete;
 
     // 密码强度校验（大小写+数字+特殊字符）
     bool checkPasswordStrength(const QString& password);
@@ -38,6 +43,12 @@ public:
 
     User getCurrentUser() { return m_currentUser; }
 private:
+    // 单例静态成员
+    static UserManager* m_instance;
+    static QMutex m_mutex; // 线程安全锁
+
+    UserManager();
+
     // 密码加密（MD5）
     QString encryptPassword(const QString& password);
 

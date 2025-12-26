@@ -4,7 +4,7 @@ UIHandler::UIHandler(QObject *parent) : QObject(parent)
 {
     m_businessLogic = new BusinessLogic(this);
     m_accountManager = new AccountManager();
-    m_userManager = new UserManager();
+    m_userManager = UserManager::getInstance();
 }
 
 bool UIHandler::login(const QString& account, const QString& password, bool rememberPwd)

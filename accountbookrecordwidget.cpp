@@ -28,8 +28,8 @@ AccountBookRecordWidget::AccountBookRecordWidget(QWidget *parent)
     initStyleSheet();
 
     // 获取当前登录用户ID
-    UserManager userManager;
-    m_currentUserId = userManager.getCurrentUser().getId();
+    UserManager* userManager = UserManager::getInstance();
+    m_currentUserId = userManager->getCurrentUser().getId();
 }
 
 QPushButton* AccountBookRecordWidget::createCateBtn(const QString& text, const QString& color)

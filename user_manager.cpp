@@ -1,5 +1,21 @@
 #include "user_manager.h"
 
+// 初始化单例静态成员
+UserManager* UserManager::m_instance = nullptr;
+QMutex UserManager::m_mutex;
+
+// 单例获取实现
+UserManager* UserManager::getInstance() {
+    if (m_instance == nullptr) {
+        m_mutex.lock(); // 线程安全保护
+        if (m_instance == nullptr) {
+            m_instance = new UserManager();
+        }
+        m_mutex.unlock();
+    }
+    return m_instance;
+}
+
 UserManager::UserManager() {
     m_dbHelper = SqliteHelper::getInstance();
     m_dbHelper->openDatabase();
