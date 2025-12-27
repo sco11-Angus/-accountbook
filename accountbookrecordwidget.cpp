@@ -18,6 +18,8 @@
 #include <QPushButton>
 #include <QMessageBox>
 
+#include <QIcon>
+
 
 AccountBookRecordWidget::AccountBookRecordWidget(QWidget *parent)
     : QWidget(parent),
@@ -75,7 +77,7 @@ QWidget* AccountBookRecordWidget::createCateBtn(const QString& text, const QStri
     QWidget *container = new QWidget();
     QVBoxLayout *layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(6); // 图标和文字的间距
+    layout->setSpacing(0); // 图标和文字的间距
     layout->setAlignment(Qt::AlignCenter); // 整体居中
 
     QPushButton *btn = new QPushButton();
@@ -103,30 +105,52 @@ QWidget* AccountBookRecordWidget::createCateBtn(const QString& text, const QStri
         activePath = normalPath;
     }
     
+    // 使用 QIcon 管理图片状态和缩放，解决 background-size 不生效导致的显示不全问题
+    QIcon icon;
+    icon.addFile(normalPath, QSize(), QIcon::Normal, QIcon::Off); // 未选中状态
+    icon.addFile(activePath, QSize(), QIcon::Normal, QIcon::On);  // 选中状态
+    
+    btn->setIcon(icon);
+    
+    // 根据是支出还是收入，设置不同的图标大小
+    // classify1 是支出（按钮多，图标需更小）；classify2 是收入（按钮少，图标可大些）
+    if (imgDir == "classify1") {
+        btn->setIconSize(QSize(70, 70));
+        // 支出：增加上边距让图片上移（相对视觉），同时给文字留出空间
+        btn->setStyleSheet(btn->styleSheet() + "QPushButton { padding-bottom: 0px; }");
+    } else {
+        btn->setIconSize(QSize(70, 70));
+    }
+
     btn->setStyleSheet(QString(R"(
         QPushButton {
             border-radius: 25px; /* 50x50的一半，做成圆形 */
             background-color: #f5f5f5; /* 图2的浅灰背景 */
-            background-image: url(%1);
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: 30px 30px; /* 图片尺寸（适配圆形） */
             border: none;
         }
-        QPushButton:checked {
-            background-image: url(%2);
-            background-size: contain;
-            background-size: 30px 30px;
-        }
-    )").arg(normalPath).arg(activePath));
+    )"));
     
     QLabel *label = new QLabel(text);
     label->setAlignment(Qt::AlignCenter);
-    label->setStyleSheet("font-size: 12px; color: #666;");
+    
+    // 支出：文字下移（增加顶部边距）；收入：维持原样
+    QString labelStyle = "font-size: 12px; color: #666;";
+    if (imgDir == "classify1") {
+        // 支出：文字下移，同时减少底部内边距防止被截断
+        labelStyle += " margin-top: 2px; margin-bottom: 2px;";
+    } else {
+        labelStyle += " margin-top: 2px;"; // 收入：维持较小间距
+    }
+    label->setStyleSheet(labelStyle);
     label->setFixedWidth(60);
 
     layout->addWidget(btn, 0, Qt::AlignCenter);
     layout->addWidget(label, 0, Qt::AlignCenter);
+    
+    // 如果是支出界面，强制增加容器高度以容纳下移的文字
+    if (imgDir == "classify1") {
+        container->setMinimumHeight(80); 
+    }
     
     return container;
 }
@@ -477,11 +501,11 @@ void AccountBookRecordWidget::initUI()
     mainLayout->setContentsMargins(20, 20, 20, 20);
     mainLayout->setSpacing(10);
 
-    // 顶部：取消
-    QHBoxLayout *topBar = new QHBoxLayout();
-    topBar->addWidget(new QPushButton("取消"));
-    topBar->addStretch();
-    mainLayout->addLayout(topBar);
+    // 顶部：取消按钮已移除
+    // QHBoxLayout *topBar = new QHBoxLayout();
+    // topBar->addWidget(new QPushButton("取消"));
+    // topBar->addStretch();
+    // mainLayout->addLayout(topBar);
 
     // 支出/收入/转账标签页
     m_tabWidget = new QTabWidget();
@@ -492,7 +516,9 @@ void AccountBookRecordWidget::initUI()
     // ========== 支出页 ==========
     QVBoxLayout *expenseLayout = new QVBoxLayout(m_expensePage);
     m_expenseCateLayout = new QGridLayout();
-    m_expenseCateLayout->setSpacing(15); // 拉大按钮之间的间距（行列都更宽松）
+    // 增加垂直间距，防止文字被下一行遮挡
+    m_expenseCateLayout->setVerticalSpacing(20); 
+    m_expenseCateLayout->setHorizontalSpacing(15);
     m_expenseCateLayout->setContentsMargins(10, 10, 10, 10);
     
     m_expenseGroup = new QButtonGroup(this);
@@ -516,12 +542,12 @@ void AccountBookRecordWidget::initUI()
     }
     expenseLayout->addLayout(m_expenseCateLayout);
 
-    // 功能按钮
-    QHBoxLayout *expenseFunc = new QHBoxLayout();
-    expenseFunc->addWidget(new QPushButton("选择账户"));
-    expenseFunc->addWidget(new QPushButton("报销"));
-    expenseFunc->addWidget(new QPushButton("优惠"));
-    expenseLayout->addLayout(expenseFunc);
+    // 功能按钮已移除
+    // QHBoxLayout *expenseFunc = new QHBoxLayout();
+    // expenseFunc->addWidget(new QPushButton("选择账户"));
+    // expenseFunc->addWidget(new QPushButton("报销"));
+    // expenseFunc->addWidget(new QPushButton("优惠"));
+    // expenseLayout->addLayout(expenseFunc);
 
     // 金额
     m_expenseAmountEdit = new QLineEdit("¥0");  // 原"¥0.00"
@@ -567,11 +593,11 @@ void AccountBookRecordWidget::initUI()
     }
     incomeLayout->addLayout(m_incomeCateLayout);
 
-    // 功能按钮
-    QHBoxLayout *incomeFunc = new QHBoxLayout();
-    incomeFunc->addWidget(new QPushButton("选择账户"));
-    incomeFunc->addWidget(new QPushButton("图片"));
-    incomeLayout->addLayout(incomeFunc);
+    // 功能按钮已移除
+    // QHBoxLayout *incomeFunc = new QHBoxLayout();
+    // incomeFunc->addWidget(new QPushButton("选择账户"));
+    // incomeFunc->addWidget(new QPushButton("图片"));
+    // incomeLayout->addLayout(incomeFunc);
 
     // 金额
     m_incomeAmountEdit = new QLineEdit("¥0");
