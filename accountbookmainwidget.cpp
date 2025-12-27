@@ -1,4 +1,5 @@
-#include "accountbookmainwidget.h"
+#include "AccountBookMainWidget.h"
+#include "AccountBookRecordWidget.h"
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>
@@ -22,6 +23,16 @@ AccountBookMainWidget::AccountBookMainWidget(QWidget *parent)
     initStyleSheet();
     // 初始化：更新为空状态（收支0，无账单）
     updateStatistic(0.0, 0.0);
+
+    // 右下角加号：打开独立记账窗口（单独的界面）
+    connect(m_addBtn, &QPushButton::clicked, this, [this]() {
+        // 不设置父对象，作为顶层窗口单独显示
+        auto *recordWidget = new AccountBookRecordWidget(nullptr);
+        recordWidget->setAttribute(Qt::WA_DeleteOnClose); // 关闭自动释放
+        recordWidget->show();
+        recordWidget->activateWindow();
+        recordWidget->raise();
+    });
 }
 
 void AccountBookMainWidget::initUI()

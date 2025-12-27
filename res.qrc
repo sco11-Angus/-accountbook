@@ -1,0 +1,62 @@
+<RCC>
+    <!-- 支出分类：前缀/classify1 + 实际路径resources/classify1/xxx.jpg -->
+    <qresource prefix="/classify1">
+        <file>resources/classify1/bangong.jpg</file>
+        <file>resources/classify1/bangong1.jpg</file>
+        <file>resources/classify1/canyin.jpg</file>
+        <file>resources/classify1/canyin1.jpg</file>
+        <file>resources/classify1/chongwu.jpg</file>
+        <file>resources/classify1/chongwu1.jpg</file>
+        <file>resources/classify1/fushi.jpg</file>
+        <file>resources/classify1/fushi1.jpg</file>
+        <file>resources/classify1/jiaotong.jpg</file>
+        <file>resources/classify1/jiaotong1.jpg</file>
+        <file>resources/classify1/lvxing.jpg</file>
+        <file>resources/classify1/lvxing1.jpg</file>
+        <file>resources/classify1/meizhuang.jpg</file>
+        <file>resources/classify1/meizhuang1.jpg</file>
+        <file>resources/classify1/qiche.jpg</file>
+        <file>resources/classify1/qiche1.jpg</file>
+        <file>resources/classify1/qita.jpg</file>
+        <file>resources/classify1/riyong.jpg</file>
+        <file>resources/classify1/riyong1.jpg</file>
+        <file>resources/classify1/ruanjian.jpg</file>
+        <file>resources/classify1/ruanjian1.jpg</file>
+        <file>resources/classify1/shejiao.jpg</file>
+        <file>resources/classify1/shejiao1.jpg</file>
+        <file>resources/classify1/shuma.jpg</file>
+        <file>resources/classify1/shuma1.jpg</file>
+        <file>resources/classify1/tongxun.jpg</file>
+        <file>resources/classify1/tongxun1.jpg</file>
+        <file>resources/classify1/xuexi.jpg</file>
+        <file>resources/classify1/xuexi1.jpg</file>
+        <file>resources/classify1/yiliao.jpg</file>
+        <file>resources/classify1/yiliao1.jpg</file>
+        <file>resources/classify1/yuer.jpg</file>
+        <file>resources/classify1/yuer1.jpg</file>
+        <file>resources/classify1/yule.jpg</file>
+        <file>resources/classify1/yule1.jpg</file>
+        <file>resources/classify1/yundong.jpg</file>
+        <file>resources/classify1/yundong1.jpg</file>
+        <file>resources/classify1/zhufang.jpg</file>
+        <file>resources/classify1/zhufang1.jpg</file>
+    </qresource>
+
+    <!-- 收入分类：前缀/classify2 + 实际路径resources/classify2/xxx.jpg -->
+    <qresource prefix="/classify2">
+        <file>resources/classify2/hongbao.jpg</file>
+        <file>resources/classify2/hongbao1.jpg</file>
+        <file>resources/classify2/jianzhi.jpg</file>
+        <file>resources/classify2/jianzhi1.jpg</file>
+        <file>resources/classify2/qita.jpg</file>
+        <file>resources/classify2/qita1.jpg</file>
+        <file>resources/classify2/touzi.jpg</file>
+        <file>resources/classify2/touzi1.jpg</file>
+        <file>resources/classify2/yiwaishouru.jpg</file>
+        <file>resources/classify2/yiwaishouru1.jpg</file>
+        <file>resources/classify2/fuye.jpg</file>
+        <file>resources/classify2/fuye1.jpg</file>
+        <file>resources/classify2/gongzi.jpg</file>
+        <file>resources/classify2/gongzi1.jpg</file>
+    </qresource>
+</RCC>
