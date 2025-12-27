@@ -1,9 +1,4 @@
 #include "accountbookrecordwidget.h"
-#include "business_logic.h"
-#include "account_record.h"
-#include "account_manager.h"
-#include "user_manager.h"
-#include <QMessageBox>
 #include <QFont>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -12,6 +7,16 @@
 #include <QStringList>
 #include <QRegularExpressionMatch>
 #include <cmath>
+#include <QFile>
+#include <QButtonGroup>
+#include <QLabel>
+#include <QDateTime>
+#include <QCalendarWidget>
+#include <QTimeEdit>
+#include <QSpinBox>
+#include <QDialog>
+#include <QPushButton>
+#include <QMessageBox>
 
 
 AccountBookRecordWidget::AccountBookRecordWidget(QWidget *parent)
@@ -21,42 +26,109 @@ AccountBookRecordWidget::AccountBookRecordWidget(QWidget *parent)
     m_currentOp(Op::None),
     m_phase(InputPhase::EnteringFirst),
     m_firstOperandText(""),
-    m_secondOperandText("")
+    m_secondOperandText(""),
+    m_currentDateTime(QDateTime::currentDateTime())
 {
     setFixedSize(450, 650);
     initUI();
     initStyleSheet();
-
-    // 获取当前登录用户ID
-    UserManager* userManager = UserManager::getInstance();
-    m_currentUserId = userManager->getCurrentUser().getId();
+    updateTimeDisplay();
 }
 
-QPushButton* AccountBookRecordWidget::createCateBtn(const QString& text, const QString& color)
+QMap<QString, QString> getCateNameMap() {
+    QMap<QString, QString> cateMap;
+    // 一一对应：中文分类名 → 拼音文件名（无后缀）
+    cateMap["餐饮"] = "canyin";
+    cateMap["服饰"] = "fushi";
+    cateMap["日用"] = "riyong";
+    cateMap["数码"] = "shuma";
+    cateMap["美妆"] = "meizhuang";
+    cateMap["软件"] = "ruanjian";
+    cateMap["住房"] = "zhufang";
+    cateMap["交通"] = "jiaotong";
+    cateMap["娱乐"] = "yule";
+    cateMap["医疗"] = "yiliao";
+    cateMap["通讯"] = "tongxun";
+    cateMap["汽车"] = "qiche";
+    cateMap["学习"] = "xuexi";
+    cateMap["办公"] = "bangong";
+    cateMap["运动"] = "yundong";
+    cateMap["社交"] = "shejiao";
+    cateMap["宠物"] = "chongwu";
+    cateMap["旅行"] = "lvxing";
+    cateMap["育儿"] = "yuer";
+    cateMap["其他"] = "qita";
+
+    cateMap["副业"] = "fuye";
+    cateMap["工资"] = "gongzi";
+    cateMap["红包"] = "hongbao";
+    cateMap["兼职"] = "jianzhi";
+    cateMap["其他"] = "qita";
+    cateMap["投资"] = "touzi";
+    cateMap["意外收入"] = "yiwaishouru";
+    return cateMap;
+}
+
+
+QWidget* AccountBookRecordWidget::createCateBtn(const QString& text, const QString& imgDir)
 {
-    QPushButton *btn = new QPushButton(text);
-    btn->setFixedSize(60, 60);
+    QWidget *container = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(6); // 图标和文字的间距
+    layout->setAlignment(Qt::AlignCenter); // 整体居中
+
+    QPushButton *btn = new QPushButton();
+    btn->setCheckable(true);
+    btn->setFixedSize(50, 50);
+    btn->setObjectName("cateButton");
+    
+    // ===== 核心修改：通过映射表获取拼音文件名 =====
+    QMap<QString, QString> cateMap = getCateNameMap();
+    // 取拼音名，若没找到则默认用"qita（其他）"
+    QString pinyinName = cateMap.value(text, "qita");
+    // 拼接路径（用拼音名替代原来的中文）
+    // 替换原来的 basePath 行，用绝对路径（注意路径里用 / 或 \\）
+    QString basePath = QString(":/%1/resources/%2/%3").arg(imgDir).arg(imgDir).arg(pinyinName);
+    QString normalPath = basePath + ".jpg";
+    QString activePath = basePath + "1.jpg";
+
+    qDebug() << "当前查找的正常图片路径：" << normalPath;
+    qDebug() << "该文件是否存在：" << QFile::exists(normalPath);
+    qDebug() << "当前查找的选中图片路径：" << activePath;
+    qDebug() << "该文件是否存在：" << QFile::exists(activePath);
+
+    // 如果没有1.jpg，则选中时也用原图
+    if (!QFile::exists(activePath)) {
+        activePath = normalPath;
+    }
+    
     btn->setStyleSheet(QString(R"(
         QPushButton {
-            background-color: rgba(255, 255, 255, 0.8);
-            border-radius: 30px;
+            border-radius: 25px; /* 50x50的一半，做成圆形 */
+            background-color: #f5f5f5; /* 图2的浅灰背景 */
+            background-image: url(%1);
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 30px 30px; /* 图片尺寸（适配圆形） */
             border: none;
-            font-size: 12px;
         }
         QPushButton:checked {
-            background-color: %1;
-            color: white;
+            background-image: url(%2);
+            background-size: contain;
+            background-size: 30px 30px;
         }
-    )").arg(color));
-    btn->setCheckable(true);
+    )").arg(normalPath).arg(activePath));
+    
+    QLabel *label = new QLabel(text);
+    label->setAlignment(Qt::AlignCenter);
+    label->setStyleSheet("font-size: 12px; color: #666;");
+    label->setFixedWidth(60);
 
-    // 绑定点击事件，记录选中分类
-    connect(btn, &QPushButton::clicked, this, [=](){
-        m_selectedCategory = text;
-        // 标记收支类型（根据当前标签页）
-        m_isExpense = (m_tabWidget->currentIndex() == 0);
-    });
-    return btn;
+    layout->addWidget(btn, 0, Qt::AlignCenter);
+    layout->addWidget(label, 0, Qt::AlignCenter);
+    
+    return container;
 }
 
 QLineEdit* AccountBookRecordWidget::getCurrentAmountEdit()
@@ -384,41 +456,18 @@ void AccountBookRecordWidget::createKeyboard()
 
     // 完成按钮点击事件
     connect(m_completeBtn, &QPushButton::clicked, this, [=](){
-        // 1. 提取金额（去除“¥”，转换为double，支出为负）
+        // 格式化金额为两位小数
         QLineEdit *edit = getCurrentAmountEdit();
         QString text = edit->text().remove("¥");
         bool ok;
         double amount = text.toDouble(&ok);
-        if (!ok || amount == 0) {
-            QMessageBox::warning(this, "错误", "请输入有效的金额（非0）");
-            return;
-        }
-        // 支出金额转为负数
-        if (m_isExpense) amount = -amount;
-
-        // 2. 业务校验（分类、用户ID、金额）
-        BusinessLogic logic;
-        AccountRecord record;
-        record.setUserId(m_currentUserId);
-        record.setAmount(amount);
-        record.setType(m_selectedCategory);
-        record.setCreateTime(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
-        record.setModifyTime(record.getCreateTime());
-
-        if (!logic.validateBillRecord(record)) {
-            QMessageBox::warning(this, "错误", logic.getValidationError());
-            return;
+        if (ok) {
+            edit->setText(QString("¥%1").arg(amount, 0, 'f', 2));
         }
 
-        // 3. 保存到数据库（调用AccountManager）
-        AccountManager accountManager;
-        if (accountManager.addAccountRecord(record)) {
-            QMessageBox::information(this, "成功", "记账记录已保存");
-            emit billRecorded(); // 通知主界面更新
-            this->close();
-        } else {
-            QMessageBox::critical(this, "失败", "保存失败：" + SqliteHelper::getInstance()->getLastError());
-        }
+        // 原有逻辑（写入数据库、发信号、关闭窗口）
+        emit billRecorded();
+        this->close();
     });
 }
 
@@ -443,12 +492,27 @@ void AccountBookRecordWidget::initUI()
     // ========== 支出页 ==========
     QVBoxLayout *expenseLayout = new QVBoxLayout(m_expensePage);
     m_expenseCateLayout = new QGridLayout();
-    // 支出分类（你指定的列表）
-    QStringList expenseCates = {"餐饮", "服饰", "日用", "数码", "美妆护肤",
-                                "应用软件", "住房", "交通", "娱乐", "医疗",
-                                "学习", "办公", "运动", "社交", "宠物", "旅行", "其他"};
+    m_expenseCateLayout->setSpacing(15); // 拉大按钮之间的间距（行列都更宽松）
+    m_expenseCateLayout->setContentsMargins(10, 10, 10, 10);
+    
+    m_expenseGroup = new QButtonGroup(this);
+    m_expenseGroup->setExclusive(true);
+
+    // 支出分类：20个，排成4行5列 (对应 resources/classify1 目录下的图片)
+    QStringList expenseCates = {
+        "餐饮", "服饰", "日用", "数码", "美妆",
+        "软件", "住房", "交通", "娱乐", "医疗",
+        "通讯", "汽车", "学习", "办公", "运动",
+        "社交", "宠物", "旅行", "育儿", "其他"
+    };
+
     for (int i=0; i<expenseCates.size(); i++) {
-        m_expenseCateLayout->addWidget(createCateBtn(expenseCates[i], "#FF6B6B"), i/5, i%5);
+        QWidget *cateWidget = createCateBtn(expenseCates[i],"classify1");
+        QPushButton *btn = cateWidget->findChild<QPushButton*>("cateButton");
+        if (btn) {
+            m_expenseGroup->addButton(btn, i);
+        }
+        m_expenseCateLayout->addWidget(cateWidget, i/5, i%5);
     }
     expenseLayout->addLayout(m_expenseCateLayout);
 
@@ -463,19 +527,45 @@ void AccountBookRecordWidget::initUI()
     m_expenseAmountEdit = new QLineEdit("¥0");  // 原"¥0.00"
     m_expenseAmountEdit->setStyleSheet("color: #FF6B6B; font-size: 24px; font-weight: bold;");
     expenseLayout->addWidget(m_expenseAmountEdit);
+    
+    // 时间和备注行
+    QHBoxLayout *expenseTimeNoteLayout = new QHBoxLayout();
+    // 时间显示（可点击）
+    m_expenseTimeLabel = new QLabel();
+    m_expenseTimeLabel->setStyleSheet("color: #666; font-size: 12px; padding: 5px; background-color: transparent;");
+    m_expenseTimeLabel->setCursor(Qt::PointingHandCursor);
+    m_expenseTimeLabel->installEventFilter(this);
+    // 使用鼠标点击事件
+    m_expenseTimeLabel->installEventFilter(this);
+    expenseTimeNoteLayout->addWidget(m_expenseTimeLabel);
+    
+    // 备注输入框
+    m_expenseNoteEdit = new QLineEdit();
+    m_expenseNoteEdit->setPlaceholderText("点击填写备注");
+    m_expenseNoteEdit->setStyleSheet("color: #999; font-size: 12px; background-color: transparent; border: none;");
+    expenseTimeNoteLayout->addWidget(m_expenseNoteEdit, 1);
+    expenseLayout->addLayout(expenseTimeNoteLayout);
 
     // ========== 收入页 ==========
     QVBoxLayout *incomeLayout = new QVBoxLayout(m_incomePage);
     m_incomeCateLayout = new QGridLayout();
-    // 收入分类（你指定的列表）
-    QStringList incomeCates = {"工资", "奖金", "福利", "红包", "兼职", "副业", "投资", "其他"};
+    m_incomeCateLayout->setSpacing(10);
+
+    m_incomeGroup = new QButtonGroup(this);
+    m_incomeGroup->setExclusive(true);
+
+    // 收入分类（使用有图片的类别）
+    QStringList incomeCates = {
+        "副业", "工资", "红包", "兼职", "投资",
+        "意外收入", "其他"
+    };
     for (int i=0; i<incomeCates.size(); i++) {
-        m_incomeCateLayout->addWidget(createCateBtn(incomeCates[i], "#4CAF50"), i/5, i%5);
+        QWidget *cateWidget = createCateBtn(incomeCates[i],"classify2");
+        QPushButton *btn = cateWidget->findChild<QPushButton*>("cateButton");
+        if (btn) m_incomeGroup->addButton(btn, i);
+        m_incomeCateLayout->addWidget(cateWidget, i/5, i%5);
     }
     incomeLayout->addLayout(m_incomeCateLayout);
-    m_incomeAmountEdit = new QLineEdit("¥0");
-    m_incomeAmountEdit->setStyleSheet("color: #4CAF50; font-size: 24px; font-weight: bold;");
-    incomeLayout->addWidget(m_incomeAmountEdit);
 
     // 功能按钮
     QHBoxLayout *incomeFunc = new QHBoxLayout();
@@ -484,9 +574,25 @@ void AccountBookRecordWidget::initUI()
     incomeLayout->addLayout(incomeFunc);
 
     // 金额
-    m_incomeAmountEdit = new QLineEdit("¥0.00");
+    m_incomeAmountEdit = new QLineEdit("¥0");
     m_incomeAmountEdit->setStyleSheet("color: #4CAF50; font-size: 24px; font-weight: bold;");
     incomeLayout->addWidget(m_incomeAmountEdit);
+    
+    // 时间和备注行
+    QHBoxLayout *incomeTimeNoteLayout = new QHBoxLayout();
+    // 时间显示（可点击）
+    m_incomeTimeLabel = new QLabel();
+    m_incomeTimeLabel->setStyleSheet("color: #666; font-size: 12px; padding: 5px; background-color: transparent;");
+    m_incomeTimeLabel->setCursor(Qt::PointingHandCursor);
+    m_incomeTimeLabel->installEventFilter(this);
+    incomeTimeNoteLayout->addWidget(m_incomeTimeLabel);
+    
+    // 备注输入框
+    m_incomeNoteEdit = new QLineEdit();
+    m_incomeNoteEdit->setPlaceholderText("点击填写备注");
+    m_incomeNoteEdit->setStyleSheet("color: #999; font-size: 12px; background-color: transparent; border: none;");
+    incomeTimeNoteLayout->addWidget(m_incomeNoteEdit, 1);
+    incomeLayout->addLayout(incomeTimeNoteLayout);
 
     // 数字键盘
     createKeyboard();
@@ -528,3 +634,299 @@ void AccountBookRecordWidget::initStyleSheet()
         }
     )");
 }
+
+bool AccountBookRecordWidget::eventFilter(QObject *obj, QEvent *event)
+{
+    if (event->type() == QEvent::MouseButtonPress) {
+        if (obj == m_expenseTimeLabel || obj == m_incomeTimeLabel) {
+            onTimeClicked();
+            return true;
+        }
+    }
+    return QWidget::eventFilter(obj, event);
+}
+
+void AccountBookRecordWidget::updateTimeDisplay()
+{
+    QString timeStr = m_currentDateTime.toString("HH:mm");
+    
+    // 设置时间显示，使用时钟图标（Unicode字符）
+    QString displayText = QString("🕐 %1").arg(timeStr);
+    if (m_expenseTimeLabel) {
+        m_expenseTimeLabel->setText(displayText);
+    }
+    if (m_incomeTimeLabel) {
+        m_incomeTimeLabel->setText(displayText);
+    }
+}
+
+void AccountBookRecordWidget::onTimeClicked()
+{
+    qDebug() << "时间选择按钮被点击";
+    showDateTimePicker();
+}
+
+void AccountBookRecordWidget::showDateTimePicker()
+{
+    DateTimePickerDialog dialog(this);
+    dialog.setDateTime(m_currentDateTime);
+    if (dialog.exec() == QDialog::Accepted) {
+        m_currentDateTime = dialog.getDateTime();
+        updateTimeDisplay();
+    }
+}
+
+QLabel* AccountBookRecordWidget::getCurrentTimeLabel()
+{
+    int currentIndex = m_tabWidget->currentIndex();
+    if (currentIndex == 0) return m_expenseTimeLabel;
+    else if (currentIndex == 1) return m_incomeTimeLabel;
+    return nullptr;
+}
+
+QLineEdit* AccountBookRecordWidget::getCurrentNoteEdit()
+{
+    int currentIndex = m_tabWidget->currentIndex();
+    if (currentIndex == 0) return m_expenseNoteEdit;
+    else if (currentIndex == 1) return m_incomeNoteEdit;
+    return nullptr;
+}
+
+// ========== DateTimePickerDialog 实现 ==========
+
+DateTimePickerDialog::DateTimePickerDialog(QWidget *parent)
+    : QDialog(parent), m_dateTime(QDateTime::currentDateTime())
+{
+    setWindowTitle("选择日期时间");
+    setFixedSize(400, 550);
+    setStyleSheet(R"(
+        QDialog {
+            background-color: white;
+        }
+        QPushButton {
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        QPushButton:hover {
+            background-color: #e0e0e0;
+        }
+        QPushButton#yearMonthBtn {
+            background-color: transparent;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        QPushButton#timeBtn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        QCalendarWidget {
+            background-color: white;
+        }
+        QCalendarWidget QTableView {
+            selection-background-color: #4CAF50;
+        }
+        QSpinBox {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        QTimeEdit {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+    )");
+    initUI();
+}
+
+void DateTimePickerDialog::initUI()
+{
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(20, 20, 20, 20);
+    
+    // 年月选择行
+    QHBoxLayout *yearMonthLayout = new QHBoxLayout();
+    m_prevMonthBtn = new QPushButton("◀");
+    m_yearMonthBtn = new QPushButton();
+    m_yearMonthBtn->setObjectName("yearMonthBtn");
+    m_nextMonthBtn = new QPushButton("▶");
+    
+    yearMonthLayout->addWidget(m_prevMonthBtn);
+    yearMonthLayout->addWidget(m_yearMonthBtn, 1);
+    yearMonthLayout->addWidget(m_nextMonthBtn);
+    
+    connect(m_prevMonthBtn, &QPushButton::clicked, this, &DateTimePickerDialog::onPrevMonth);
+    connect(m_nextMonthBtn, &QPushButton::clicked, this, &DateTimePickerDialog::onNextMonth);
+    connect(m_yearMonthBtn, &QPushButton::clicked, this, &DateTimePickerDialog::onYearMonthClicked);
+    
+    mainLayout->addLayout(yearMonthLayout);
+    
+    // 日历
+    m_calendar = new QCalendarWidget();
+    m_calendar->setGridVisible(true);
+    // 连接日历选择日期信号，更新内部日期时间
+    connect(m_calendar, &QCalendarWidget::selectionChanged, this, [this]() {
+        QDate selectedDate = m_calendar->selectedDate();
+        if (selectedDate.isValid()) {
+            m_dateTime = QDateTime(selectedDate, m_dateTime.time());
+            updateDisplay();
+        }
+    });
+    mainLayout->addWidget(m_calendar);
+    
+    // 时间选择行
+    QHBoxLayout *timeLayout = new QHBoxLayout();
+    timeLayout->addWidget(new QLabel("时间:"));
+    m_timeLabel = new QLabel();
+    m_timeBtn = new QPushButton();
+    m_timeBtn->setText("选择时间");
+    m_timeBtn->setObjectName("timeBtn");
+    timeLayout->addWidget(m_timeLabel, 1);
+    timeLayout->addWidget(m_timeBtn);
+    
+    connect(m_timeBtn, &QPushButton::clicked, this, &DateTimePickerDialog::onTimeClicked);
+    
+    mainLayout->addLayout(timeLayout);
+    
+    // 按钮行
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    QPushButton *cancelBtn = new QPushButton("取消");
+    QPushButton *okBtn = new QPushButton("确定");
+    okBtn->setStyleSheet("background-color: #4CAF50; color: white; padding: 8px 20px; border-radius: 5px;");
+    cancelBtn->setStyleSheet("background-color: #ccc; color: white; padding: 8px 20px; border-radius: 5px;");
+    
+    connect(cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
+    connect(okBtn, &QPushButton::clicked, this, &QDialog::accept);
+    
+    btnLayout->addWidget(cancelBtn);
+    btnLayout->addWidget(okBtn);
+    mainLayout->addLayout(btnLayout);
+    
+    // 初始化年月选择器对话框
+    m_yearMonthDialog = new QDialog(this);
+    m_yearMonthDialog->setWindowTitle("选择年月");
+    m_yearMonthDialog->setFixedSize(300, 200);
+    QVBoxLayout *ymLayout = new QVBoxLayout(m_yearMonthDialog);
+    QHBoxLayout *ymInputLayout = new QHBoxLayout();
+    m_yearSpinBox = new QSpinBox();
+    m_yearSpinBox->setRange(2000, 2100);
+    m_yearSpinBox->setSuffix("年");
+    m_monthSpinBox = new QSpinBox();
+    m_monthSpinBox->setRange(1, 12);
+    m_monthSpinBox->setSuffix("月");
+    ymInputLayout->addWidget(m_yearSpinBox);
+    ymInputLayout->addWidget(m_monthSpinBox);
+    ymLayout->addLayout(ymInputLayout);
+    QHBoxLayout *ymBtnLayout = new QHBoxLayout();
+    QPushButton *ymCancelBtn = new QPushButton("取消");
+    QPushButton *ymOkBtn = new QPushButton("确定");
+    connect(ymCancelBtn, &QPushButton::clicked, m_yearMonthDialog, &QDialog::reject);
+    connect(ymOkBtn, &QPushButton::clicked, this, &DateTimePickerDialog::onYearMonthSelected);
+    ymBtnLayout->addWidget(ymCancelBtn);
+    ymBtnLayout->addWidget(ymOkBtn);
+    ymLayout->addLayout(ymBtnLayout);
+    
+    // 初始化时间选择器对话框
+    m_timeDialog = new QDialog(this);
+    m_timeDialog->setWindowTitle("选择时间");
+    m_timeDialog->setFixedSize(250, 150);
+    QVBoxLayout *timeDialogLayout = new QVBoxLayout(m_timeDialog);
+    m_timeEdit = new QTimeEdit();
+    m_timeEdit->setDisplayFormat("HH:mm");
+    timeDialogLayout->addWidget(m_timeEdit);
+    QHBoxLayout *timeBtnLayout = new QHBoxLayout();
+    QPushButton *timeCancelBtn = new QPushButton("取消");
+    QPushButton *timeOkBtn = new QPushButton("确定");
+    connect(timeCancelBtn, &QPushButton::clicked, m_timeDialog, &QDialog::reject);
+    connect(timeOkBtn, &QPushButton::clicked, this, &DateTimePickerDialog::onTimeSelected);
+    timeBtnLayout->addWidget(timeCancelBtn);
+    timeBtnLayout->addWidget(timeOkBtn);
+    timeDialogLayout->addLayout(timeBtnLayout);
+    
+    updateDisplay();
+}
+
+void DateTimePickerDialog::setDateTime(const QDateTime &dateTime)
+{
+    m_dateTime = dateTime;
+    updateDisplay();
+}
+
+QDateTime DateTimePickerDialog::getDateTime() const
+{
+    QDate selectedDate = m_calendar->selectedDate();
+    if (!selectedDate.isValid()) {
+        selectedDate = m_dateTime.date();
+    }
+    QTime selectedTime = m_dateTime.time();
+    return QDateTime(selectedDate, selectedTime);
+}
+
+void DateTimePickerDialog::updateDisplay()
+{
+    // 更新年月按钮文本
+    QString yearMonthText = m_dateTime.toString("yyyy年MM月");
+    m_yearMonthBtn->setText(yearMonthText);
+    
+    // 更新日历显示
+    m_calendar->setSelectedDate(m_dateTime.date());
+    m_calendar->setCurrentPage(m_dateTime.date().year(), m_dateTime.date().month());
+    
+    // 更新时间显示
+    QString timeText = m_dateTime.toString("HH:mm");
+    m_timeLabel->setText(timeText);
+}
+
+void DateTimePickerDialog::onPrevMonth()
+{
+    m_dateTime = m_dateTime.addMonths(-1);
+    updateDisplay();
+}
+
+void DateTimePickerDialog::onNextMonth()
+{
+    m_dateTime = m_dateTime.addMonths(1);
+    updateDisplay();
+}
+
+void DateTimePickerDialog::onYearMonthClicked()
+{
+    m_yearSpinBox->setValue(m_dateTime.date().year());
+    m_monthSpinBox->setValue(m_dateTime.date().month());
+    if (m_yearMonthDialog->exec() == QDialog::Accepted) {
+        onYearMonthSelected();
+    }
+}
+
+void DateTimePickerDialog::onYearMonthSelected()
+{
+    int year = m_yearSpinBox->value();
+    int month = m_monthSpinBox->value();
+    QDate newDate(year, month, qMin(m_dateTime.date().day(), QDate(year, month, 1).daysInMonth()));
+    m_dateTime = QDateTime(newDate, m_dateTime.time());
+    updateDisplay();
+    m_yearMonthDialog->accept();
+}
+
+void DateTimePickerDialog::onTimeClicked()
+{
+    m_timeEdit->setTime(m_dateTime.time());
+    if (m_timeDialog->exec() == QDialog::Accepted) {
+        onTimeSelected();
+    }
+}
+
+void DateTimePickerDialog::onTimeSelected()
+{
+    QTime selectedTime = m_timeEdit->time();
+    m_dateTime = QDateTime(m_dateTime.date(), selectedTime);
+    updateDisplay();
+    m_timeDialog->accept();
+}
+

@@ -9,6 +9,15 @@
 #include <QComboBox>
 #include <QLabel>
 #include <QString>
+#include <QDateTime>
+#include <QEvent>
+#include <QButtonGroup>
+#include <QDialog>
+#include <QCalendarWidget>
+#include <QSpinBox>
+#include <QTimeEdit>
+
+class DateTimePickerDialog;
 
 class AccountBookRecordWidget : public QWidget
 {
@@ -30,6 +39,7 @@ private slots:
     void updateAmountDisplay();
     void calculateIfPossible();
     void onEqualClicked();
+    void onTimeClicked();
 
 private:
     // 新增枚举类型定义
@@ -45,9 +55,16 @@ private:
 
     void initUI();
     void initStyleSheet();
-    QPushButton* createCateBtn(const QString& text, const QString& color);
+    QWidget* createCateBtn(const QString& text,const QString& imgDir);
     void createKeyboard();
     QLineEdit* getCurrentAmountEdit();
+
+    bool eventFilter(QObject *obj, QEvent *event) override;  // 重写事件过滤器
+    void updateTimeDisplay();
+    void onTimeLabelClicked();
+    void showDateTimePicker();
+    QLabel* getCurrentTimeLabel();
+    QLineEdit* getCurrentNoteEdit();
 
     // 标签页
     QTabWidget *m_tabWidget;
@@ -85,10 +102,49 @@ private:
     QString m_firstOperandText;  // 第一个操作数文本
     QString m_secondOperandText; // 第二个操作数文本
     QString opToString(Op op) const; // 运算符转字符串
+    QButtonGroup* m_expenseGroup;  // 支出分类按钮组
+    QButtonGroup* m_incomeGroup;   // 收入分类按钮组
 
-    QString m_selectedCategory; // 选中的分类（如“餐饮”）
-    bool m_isExpense;           // 是否为支出（true=支出，false=收入）
-    int m_currentUserId;        // 当前登录用户ID
+    QLabel *m_expenseTimeLabel;   // 支出页时间按钮
+    QLineEdit *m_expenseNoteEdit;     // 支出页备注框
+    QLabel *m_incomeTimeLabel;    // 收入页时间按钮
+    QLineEdit *m_incomeNoteEdit;     // 收入页备注框
+
+    QDateTime m_currentDateTime;    // 存储当前选中的时间
+};
+
+class DateTimePickerDialog : public QDialog
+{
+    Q_OBJECT
+public:
+    DateTimePickerDialog(QWidget *parent = nullptr);
+    void setDateTime(const QDateTime &dateTime);
+    QDateTime getDateTime() const;
+
+private slots:
+    void onPrevMonth();
+    void onNextMonth();
+    void onYearMonthClicked();
+    void onYearMonthSelected();
+    void onTimeClicked();
+    void onTimeSelected();
+
+private:
+    void initUI();
+    void updateDisplay();
+    QDateTime m_dateTime;
+    QPushButton *m_prevMonthBtn;
+    QPushButton *m_yearMonthBtn;
+    QPushButton *m_nextMonthBtn;
+    QCalendarWidget *m_calendar;
+    QLabel *m_timeLabel;
+    QPushButton *m_timeBtn;
+    QDialog *m_yearMonthDialog;
+    QSpinBox *m_yearSpinBox;
+    QSpinBox *m_monthSpinBox;
+    QDialog *m_timeDialog;
+    QTimeEdit *m_timeEdit;
 };
 
 #endif // ACCOUNTBOOKRECORDWIDGET_H
+
