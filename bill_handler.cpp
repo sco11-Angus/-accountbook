@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QDir>
 #include <QSqlDatabase>
+#include <QJsonDocument>
 #include "sqlite_helper.h"
 
 bill_handler::bill_handler()
