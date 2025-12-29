@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include "tcp_server.h"
 #include "bill_handler.h"
+#include "db_manager.h"
 
 class server_main : public QObject
 {
@@ -28,6 +29,8 @@ private slots:
 private:
     tcp_server* m_tcpServer;
     bill_handler* m_billHandler;
+
+    DBManager* s_dbmanger;
     
     // 获取客户端socket
     QTcpSocket* getClientSocket(qintptr socketDescriptor);

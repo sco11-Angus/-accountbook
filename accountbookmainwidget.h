@@ -19,6 +19,8 @@ public:
     explicit AccountBookMainWidget(QWidget *parent = nullptr);
     void updateBillData(const QList<QMap<QString, QString>>& billList);
 
+
+
 private:
     void initUI();
     void initStyleSheet();

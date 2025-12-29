@@ -16,6 +16,9 @@
 #include <QCalendarWidget>
 #include <QSpinBox>
 #include <QTimeEdit>
+#include "account_record.h"
+#include "account_manager.h"
+#include "user_manager.h"
 
 class DateTimePickerDialog;
 

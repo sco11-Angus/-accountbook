@@ -1,5 +1,7 @@
 #include "AccountBookMainWidget.h"
 #include "AccountBookRecordWidget.h"
+#include "account_manager.h"
+#include "user_manager.h"
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>
@@ -11,6 +13,8 @@
 #include <QFont>
 #include <QRegularExpression>
 #include <QString>
+#include <QDebug>
+#include <QDate>
 
 AccountBookMainWidget::AccountBookMainWidget(QWidget *parent)
     : QWidget(parent)

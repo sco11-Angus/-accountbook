@@ -5,19 +5,19 @@
 #include <QDir>
 #include <QSqlDatabase>
 #include <QJsonDocument>
-#include "sqlite_helper.h"
+#include <QSqlQuery>
+#include <QSqlRecord>
+#include <QVariantList>
+#include "mysql_helper.h"
 
 bill_handler::bill_handler()
+    : m_dbHelper(MySqlHelper::getInstance())
 {
-    m_accountManager = new AccountManager();
 }
 
 bill_handler::~bill_handler()
 {
-    if (m_accountManager) {
-        delete m_accountManager;
-        m_accountManager = nullptr;
-    }
+    // MySqlHelper 是单例，不需要手动删除
 }
 
 QJsonObject bill_handler::handleSyncBills(const QJsonObject& request)
@@ -41,16 +41,20 @@ QJsonObject bill_handler::handleSyncBills(const QJsonObject& request)
     
     // 获取用户ID（如果请求中包含）
     int userId = request.contains("userId") ? request["userId"].toInt() : 0;
+    // 获取账本ID（可选，默认为1）
+    int bookId = request.contains("bookId") ? request["bookId"].toInt() : 1;
     
     // 开启事务处理批量同步
-    QSqlDatabase db = SqliteHelper::getInstance()->getDatabase();
-    db.transaction();
+    if (!m_dbHelper->beginTransaction()) {
+        response["success"] = false;
+        response["message"] = "无法开启事务";
+        return response;
+    }
     
     int successCount = 0;
     int failCount = 0;
-    QList<AccountRecord> recordsToSync;
     
-    // 解析账单数据
+    // 解析账单数据并直接插入到 MySQL bill 表
     for (const QJsonValue& value : billsArray) {
         if (!value.isObject()) {
             failCount++;
@@ -65,44 +69,30 @@ QJsonObject bill_handler::handleSyncBills(const QJsonObject& request)
             userId = record.getUserId();
         }
         
-        // 检查记录是否已存在（根据ID）
-        if (record.getId() > 0) {
-            // 更新现有记录
-            if (m_accountManager->editAccountRecord(record)) {
-                successCount++;
-            } else {
-                failCount++;
-            }
-        } else {
-            // 新记录，添加到列表
-            recordsToSync.append(record);
-        }
-    }
-    
-    // 批量添加新记录
-    for (const AccountRecord& record : recordsToSync) {
-        if (m_accountManager->addAccountRecord(record)) {
+        // 直接插入到 MySQL bill 表
+        if (insertBillToDatabase(record, bookId)) {
             successCount++;
         } else {
             failCount++;
         }
     }
     
-    // 提交事务
+    // 提交或回滚事务
     if (successCount > 0) {
-        db.commit();
+        m_dbHelper->commitTransaction();
         response["success"] = true;
         response["message"] = QString("同步成功：%1条记录，失败：%2条").arg(successCount).arg(failCount);
         response["successCount"] = successCount;
         response["failCount"] = failCount;
+        qDebug() << "【handleSyncBills】同步完成：" << response["message"].toString();
     } else {
-        db.rollback();
+        m_dbHelper->rollbackTransaction();
         response["success"] = false;
         response["message"] = "同步失败：所有记录都无法处理";
         response["failCount"] = failCount;
+        qWarning() << "【handleSyncBills】同步失败，已回滚事务";
     }
     
-    qDebug() << "同步账单处理完成：" << response["message"].toString();
     return response;
 }
 
@@ -139,10 +129,65 @@ QJsonObject bill_handler::handleQueryBills(const QJsonObject& request)
         timeRange = QString("%1-%2").arg(lastSyncTime).arg(currentTime);
     }
     
-    // 查询账单
-    QList<AccountRecord> records = m_accountManager->queryAccountRecord(
-        userId, timeRange, type, minAmount, maxAmount, isDeleted
-    );
+    // 构造 SQL 查询 MySQL bill 表
+    QString sql = QString(R"(
+        SELECT id, user_id, category_id, amount, bill_date, type, 
+               description, voucher_path, is_deleted, delete_time, 
+               create_time, update_time
+        FROM bill WHERE user_id = %1 AND is_deleted = %2
+    )").arg(userId).arg(isDeleted ? 1 : 0);
+    
+    // 添加分类筛选
+    if (!type.isEmpty()) {
+        int categoryId = queryCategoryId(type, userId);
+        if (categoryId > 0) {
+            sql += QString(" AND category_id = %1").arg(categoryId);
+        }
+    }
+    
+    // 添加日期范围筛选
+    if (!timeRange.isEmpty()) {
+        QStringList parts = timeRange.split("-");
+        if (parts.size() == 2) {
+            sql += QString(" AND bill_date BETWEEN '%1' AND '%2'").arg(parts[0]).arg(parts[1]);
+        }
+    }
+    
+    // 添加金额范围筛选
+    if (minAmount > 0 || maxAmount > 0) {
+        if (minAmount > 0) sql += QString(" AND amount >= %1").arg(minAmount);
+        if (maxAmount > 0) sql += QString(" AND amount <= %1").arg(maxAmount);
+    }
+    
+    sql += " ORDER BY bill_date DESC";
+    
+    QSqlQuery query = m_dbHelper->executeQuery(sql);
+    QList<AccountRecord> records;
+    
+    while (query.next()) {
+        AccountRecord record;
+        record.setId(query.value("id").toInt());
+        record.setUserId(query.value("user_id").toInt());
+        record.setAmount(query.value("amount").toDouble());
+        record.setCreateTime(query.value("bill_date").toString());
+        record.setRemark(query.value("description").toString());
+        record.setVoucherPath(query.value("voucher_path").toString());
+        record.setIsDeleted(query.value("is_deleted").toInt());
+        record.setDeleteTime(query.value("delete_time").toString());
+        record.setModifyTime(query.value("update_time").toString());
+        
+        // 根据 category_id 查询分类名称
+        int categoryId = query.value("category_id").toInt();
+        QString categoryName = "未知";
+        QString catSql = QString("SELECT name FROM bill_category WHERE id = %1").arg(categoryId);
+        QSqlQuery catQuery = m_dbHelper->executeQuery(catSql);
+        if (catQuery.next()) {
+            categoryName = catQuery.value(0).toString();
+        }
+        record.setType(categoryName);
+        
+        records.append(record);
+    }
     
     // 转换为JSON数组
     QJsonArray billsArray = recordsToJsonArray(records);
@@ -193,9 +238,41 @@ QJsonObject bill_handler::handleBackupData(const QJsonObject& request)
     }
     
     // 查询用户的所有账单数据（包括已删除的）
-    QList<AccountRecord> allRecords = m_accountManager->queryAccountRecord(userId, "", "", 0, 0, false);
-    QList<AccountRecord> deletedRecords = m_accountManager->queryAccountRecord(userId, "", "", 0, 0, true);
-    allRecords.append(deletedRecords);
+    QString sql = QString(R"(
+        SELECT id, user_id, category_id, amount, bill_date, type, 
+               description, voucher_path, is_deleted, delete_time, 
+               create_time, update_time
+        FROM bill WHERE user_id = %1
+        ORDER BY bill_date DESC
+    )").arg(userId);
+    
+    QSqlQuery query = m_dbHelper->executeQuery(sql);
+    QList<AccountRecord> allRecords;
+    
+    while (query.next()) {
+        AccountRecord record;
+        record.setId(query.value("id").toInt());
+        record.setUserId(query.value("user_id").toInt());
+        record.setAmount(query.value("amount").toDouble());
+        record.setCreateTime(query.value("bill_date").toString());
+        record.setRemark(query.value("description").toString());
+        record.setVoucherPath(query.value("voucher_path").toString());
+        record.setIsDeleted(query.value("is_deleted").toInt());
+        record.setDeleteTime(query.value("delete_time").toString());
+        record.setModifyTime(query.value("update_time").toString());
+        
+        // 根据 category_id 查询分类名称
+        int categoryId = query.value("category_id").toInt();
+        QString categoryName = "未知";
+        QString catSql = QString("SELECT name FROM bill_category WHERE id = %1").arg(categoryId);
+        QSqlQuery catQuery = m_dbHelper->executeQuery(catSql);
+        if (catQuery.next()) {
+            categoryName = catQuery.value(0).toString();
+        }
+        record.setType(categoryName);
+        
+        allRecords.append(record);
+    }
     
     // 生成备份文件名
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
@@ -272,3 +349,96 @@ QJsonArray bill_handler::recordsToJsonArray(const QList<AccountRecord>& records)
     }
     return array;
 }
+
+// ==================== 新增：直接操作MySQL bill表的方法 ====================
+
+/**
+ * @brief 查询分类ID
+ * @param categoryName 分类名称（如"餐饮"、"交通"）
+ * @param userId 用户ID
+ * @return 分类ID，查不到返回 -1
+ */
+int bill_handler::queryCategoryId(const QString& categoryName, int userId)
+{
+    if (categoryName.isEmpty() || userId <= 0) {
+        return -1;
+    }
+    
+    QString sql = QString(R"(
+        SELECT id FROM bill_category 
+        WHERE user_id = %1 AND name = '%2' AND is_deleted = 0
+        LIMIT 1
+    )").arg(userId).arg(categoryName);
+    
+    QSqlQuery query = m_dbHelper->executeQuery(sql);
+    if (query.next()) {
+        return query.value(0).toInt();
+    }
+    
+    qWarning() << "【queryCategoryId】未找到分类：" << categoryName << "，用户ID：" << userId;
+    return -1;
+}
+
+/**
+ * @brief 将 AccountRecord 直接插入到 MySQL bill 表
+ * @param record 账单记录
+ * @param defaultBookId 默认账本ID（当无法确定时使用）
+ * @return 是否插入成功
+ */
+bool bill_handler::insertBillToDatabase(const AccountRecord& record, int defaultBookId)
+{
+    if (record.getUserId() <= 0 || record.getAmount() == 0) {
+        qWarning() << "【insertBillToDatabase】无效的记录：userId=" << record.getUserId() 
+                  << "，amount=" << record.getAmount();
+        return false;
+    }
+    
+    // 1. 查询分类ID
+    int categoryId = queryCategoryId(record.getType(), record.getUserId());
+    if (categoryId <= 0) {
+        qWarning() << "【insertBillToDatabase】分类不存在：" << record.getType();
+        // 可以选择使用默认分类或返回失败
+        categoryId = 1;  // 使用默认分类ID为1
+    }
+    
+    // 2. 确定账单类型（0=支出，1=收入）
+    // 根据 remark 中的关键字判断，或使用默认的 0（支出）
+    int type = 0;  // 默认为支出
+    
+    // 3. 构造 SQL 插入语句
+    QString sql = R"(
+        INSERT INTO bill (
+            user_id, book_id, category_id, bill_date, amount, type, 
+            description, voucher_path, is_deleted, delete_time, 
+            create_time, update_time, local_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    )";
+    
+    QVariantList params;
+    params << record.getUserId()           // user_id
+           << defaultBookId                 // book_id
+           << categoryId                    // category_id
+           << record.getCreateTime()        // bill_date
+           << record.getAmount()            // amount
+           << type                          // type（0=支出，1=收入）
+           << record.getRemark()            // description
+           << record.getVoucherPath()       // voucher_path
+           << record.getIsDeleted()         // is_deleted
+           << record.getDeleteTime()        // delete_time
+           << record.getCreateTime()        // create_time
+           << record.getModifyTime()        // update_time
+           << record.getId();               // local_id（保存本地ID用于后续同步）
+    
+    bool success = m_dbHelper->executeSqlWithParams(sql, params);
+    
+    if (success) {
+        qDebug() << "【insertBillToDatabase】成功插入账单：userId=" << record.getUserId() 
+                << "，amount=" << record.getAmount() << "，category=" << record.getType();
+    } else {
+        qWarning() << "【insertBillToDatabase】插入失败：" << m_dbHelper->getLastError();
+    }
+    
+    return success;
+}
+
+// ================================================================
