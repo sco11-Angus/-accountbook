@@ -480,17 +480,114 @@ void AccountBookRecordWidget::createKeyboard()
 
     // 完成按钮点击事件
     connect(m_completeBtn, &QPushButton::clicked, this, [=](){
-        // 格式化金额为两位小数
-        QLineEdit *edit = getCurrentAmountEdit();
-        QString text = edit->text().remove("¥");
+        // 1. 获取当前金额编辑框
+        QLineEdit *amountEdit = getCurrentAmountEdit();
+        QString text = amountEdit->text().remove("¥");
         bool ok;
         double amount = text.toDouble(&ok);
-        if (ok) {
-            edit->setText(QString("¥%1").arg(amount, 0, 'f', 2));
+        
+        if (!ok || amount == 0.0) {
+            QMessageBox::warning(this, "提示", "请输入有效的金额");
+            return;
         }
 
-        // 原有逻辑（写入数据库、发信号、关闭窗口）
+        // 2. 格式化金额为两位小数
+        amountEdit->setText(QString("¥%1").arg(amount, 0, 'f', 2));
+
+        // 3. 获取当前页面（支出0，收入1）
+        int currentPage = m_tabWidget->currentIndex();
+        
+        // 4. 获取选中的分类
+        QString category;
+        if (currentPage == 0) {
+            // 支出页
+            int checkedId = m_expenseGroup->checkedId();
+            if (checkedId < 0) {
+                QMessageBox::warning(this, "提示", "请选择消费分类");
+                return;
+            }
+            QStringList expenseCates = {
+                "餐饮", "服饰", "日用", "数码", "美妆",
+                "软件", "住房", "交通", "娱乐", "医疗",
+                "通讯", "汽车", "学习", "办公", "运动",
+                "社交", "宠物", "旅行", "育儿", "其他"
+            };
+            category = expenseCates[checkedId];
+            amount = -amount;  // 支出为负数
+            qDebug() << "记账：支出类型" << category << "金额" << amount;
+        } else if (currentPage == 1) {
+            // 收入页
+            int checkedId = m_incomeGroup->checkedId();
+            if (checkedId < 0) {
+                QMessageBox::warning(this, "提示", "请选择收入分类");
+                return;
+            }
+            QStringList incomeCates = {
+                "副业", "工资", "红包", "兼职", "投资",
+                "意外收入", "其他"
+            };
+            category = incomeCates[checkedId];
+            // 收入为正数，amount 保持原样
+            qDebug() << "记账：收入类型" << category << "金额" << amount;
+        } else {
+            QMessageBox::warning(this, "提示", "无效的页面");
+            return;
+        }
+
+        // 5. 获取备注
+        QString remark;
+        if (currentPage == 0) {
+            remark = m_expenseNoteEdit->text();
+        } else {
+            remark = m_incomeNoteEdit->text();
+        }
+
+        // 6. 获取当前登录用户ID
+        UserManager* userManager = UserManager::getInstance();
+        User currentUser = userManager->getCurrentUser();
+        int userId = currentUser.getId();
+        
+        qDebug() << "当前用户ID：" << userId;
+        
+        if (userId <= 0) {
+            QMessageBox::warning(this, "错误", "获取用户信息失败，请重新登录");
+            return;
+        }
+
+        // 7. 创建 AccountRecord 对象
+        AccountRecord record;
+        record.setUserId(userId);
+        record.setAmount(amount);
+        record.setType(category);
+        record.setRemark(remark);
+        record.setCreateTime(m_currentDateTime.toString("yyyy-MM-dd HH:mm:ss"));
+        record.setModifyTime(m_currentDateTime.toString("yyyy-MM-dd HH:mm:ss"));
+        record.setIsDeleted(0);  // 0 表示正常记录
+
+        // 调试信息：打印即将保存的数据
+        qDebug() << "====== 准备保存账单 ======";
+        qDebug() << "用户ID:" << record.getUserId();
+        qDebug() << "金额:" << record.getAmount();
+        qDebug() << "分类:" << record.getType();
+        qDebug() << "备注:" << record.getRemark();
+        qDebug() << "创建时间:" << record.getCreateTime();
+        qDebug() << "================";
+
+        // 8. 调用 AccountManager 保存到数据库
+        AccountManager accountManager;
+        bool saveSuccess = accountManager.addAccountRecord(record);
+        
+        if (!saveSuccess) {
+            QMessageBox::critical(this, "错误", "保存记录失败，请重试");
+            return;
+        }
+        
+        QMessageBox::information(this, "成功", "账单记录已保存");
+
+        // 9. 发送成功信号
         emit billRecorded();
+        
+        // 10. 关闭窗口
         this->close();
     });
 }

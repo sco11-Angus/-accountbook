@@ -35,6 +35,10 @@ bool server_main::startServer(quint16 port)
     if (success) {
         qDebug() << "服务器主程序启动成功，监听端口:" << port;
     }
+
+    s_dbmanger = DBManager::getInstance();
+    s_dbmanger->connectRemoteDatabase("localhost", 3306, "root", "CcSs123456@", "account_book_server");
+
     return success;
 }
 

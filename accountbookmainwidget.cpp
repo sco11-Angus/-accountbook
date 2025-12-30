@@ -1,7 +1,12 @@
 #include "AccountBookMainWidget.h"
 #include "AccountBookRecordWidget.h"
+<<<<<<< HEAD
 #include "monthpickerdialog.h"
 #include "sqlite_helper.h"
+=======
+#include "account_manager.h"
+#include "user_manager.h"
+>>>>>>> origin/branch
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>
@@ -13,12 +18,17 @@
 #include <QFont>
 #include <QRegularExpression>
 #include <QString>
+<<<<<<< HEAD
 #include <QDate>
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDebug>
 #include <QEvent>
 #include <QMouseEvent>
+=======
+#include <QDebug>
+#include <QDate>
+>>>>>>> origin/branch
 
 AccountBookMainWidget::AccountBookMainWidget(QWidget *parent)
     : QWidget(parent), m_currentDate(QDate::currentDate())

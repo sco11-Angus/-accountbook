@@ -20,6 +20,7 @@ public:
     explicit AccountBookMainWidget(QWidget *parent = nullptr);
     void updateBillData(const QList<QMap<QString, QString>>& billList);
 
+<<<<<<< HEAD
 private slots:
     void onPrevMonth();
     void onNextMonth();
@@ -27,6 +28,9 @@ private slots:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+=======
+
+>>>>>>> origin/branch
 
 private:
     void initUI();

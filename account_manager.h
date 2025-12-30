@@ -54,6 +54,13 @@ public:
 
 private:
     SqliteHelper* m_dbHelper = SqliteHelper::getInstance();
+    
+    // 将账单记录同步到服务端
+    void syncRecordToServer(const AccountRecord& record);
+    void syncEditRecordToServer(const AccountRecord& record);
+    void syncDeleteRecordToServer(int recordId);
+    void syncRestoreRecordToServer(int recordId);
+    void syncPermanentDeleteRecordToServer(int recordId);
 };
 
 #endif // ACCOUNT_MANAGER_H

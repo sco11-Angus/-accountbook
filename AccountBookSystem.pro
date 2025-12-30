@@ -13,8 +13,10 @@ SOURCES += \
     ai_manager.cpp \
     bill_handler.cpp \
     bill_sync_client.cpp \
+    db_manager.cpp \
     main.cpp \
     mainwindow.cpp \
+    mysql_helper.cpp \
     server_main.cpp \
     sqlite_helper.cpp \
     statistics_manager.cpp \
@@ -41,7 +43,10 @@ HEADERS += \
     ai_manager.h \
     bill_handler.h \
     bill_sync_client.h \
+    db_manager.h \
+    db_models.h \
     mainwindow.h \
+    mysql_helper.h \
     server_main.h \
     sqlite_helper.h \
     statistics_manager.h \

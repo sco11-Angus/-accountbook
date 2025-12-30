@@ -6,7 +6,8 @@
 #include <QString>
 #include <QList>
 #include "account_record.h"
-#include "account_manager.h"
+
+class MySqlHelper;
 
 class bill_handler
 {
@@ -24,7 +25,11 @@ public:
     QJsonObject handleBackupData(const QJsonObject& request);
 
 private:
-    AccountManager* m_accountManager;
+    MySqlHelper* m_dbHelper;
+    
+    // 直接操作 MySQL bill 表
+    bool insertBillToDatabase(const AccountRecord& record, int defaultBookId = 1);
+    int queryCategoryId(const QString& categoryName, int userId);
     
     // 将 AccountRecord 转换为 JSON 对象
     QJsonObject recordToJson(const AccountRecord& record);

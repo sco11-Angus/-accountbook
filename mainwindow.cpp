@@ -1,9 +1,10 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "user_manager.h"
+#include "account_manager.h"
 #include "AccountBookRecordWidget.h"
 #include <QMessageBox>
-
+#include <QDebug>
 #include <QVBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -27,9 +28,8 @@ MainWindow::MainWindow(QWidget *parent)
             return; // 终止后续流程，不显示记账界面
         }
 
-        // 3. 已登录则显示记账界面
-        AccountBookRecordWidget recordWidget;
-        // 设置窗口为“应用级模态”（整个程序都等这个窗口关闭）
+        // 3. 已登录则显示记账界面（堆上分配）
+        AccountBookRecordWidget recordWidget ;
         recordWidget.setWindowModality(Qt::ApplicationModal);
         recordWidget.show();
     });
@@ -49,3 +49,4 @@ MainWindow::~MainWindow()
 {
     delete ui;
 }
+

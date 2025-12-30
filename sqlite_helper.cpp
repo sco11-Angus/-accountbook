@@ -445,6 +445,7 @@ void SqliteHelper::clearError() {
 
 // ============ 私有方法 ============
 bool SqliteHelper::createIndexes() {
+<<<<<<< HEAD
     QStringList stmts = {
         "CREATE INDEX IF NOT EXISTS idx_user_account ON user(account)",
         "CREATE INDEX IF NOT EXISTS idx_account_user_id ON account_record(user_id)",
@@ -463,6 +464,24 @@ bool SqliteHelper::createIndexes() {
     if (txnStarted && !commitTransaction()) {
         return false;
     }
+=======
+    // 创建用户账号索引
+    if (!executeSql("CREATE INDEX IF NOT EXISTS idx_user_account ON user(account)")) {
+        return false;
+    }
+
+    // 创建账单用户ID索引
+    if (!executeSql("CREATE INDEX IF NOT EXISTS idx_account_user_id ON account_record(user_id)")) {
+        return false;
+    }
+
+    // 创建账单创建时间索引
+    if (!executeSql("CREATE INDEX IF NOT EXISTS idx_account_create_time ON account_record(create_time)")) {
+        return false;
+    }
+
+    qDebug() << "✓ 数据库索引创建成功";
+>>>>>>> origin/branch
     return true;
 }
 
