@@ -445,12 +445,24 @@ void SqliteHelper::clearError() {
 
 // ============ 私有方法 ============
 bool SqliteHelper::createIndexes() {
-    QString createIndexes = R"(
-        CREATE INDEX IF NOT EXISTS idx_user_account ON user(account);
-        CREATE INDEX IF NOT EXISTS idx_account_user_id ON account_record(user_id);
-        CREATE INDEX IF NOT EXISTS idx_account_create_time ON account_record(create_time);
-    )";
+    QStringList stmts = {
+        "CREATE INDEX IF NOT EXISTS idx_user_account ON user(account)",
+        "CREATE INDEX IF NOT EXISTS idx_account_user_id ON account_record(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_account_create_time ON account_record(create_time)"
+    };
 
-    return executeSql(createIndexes);
+    bool txnStarted = beginTransaction();
+    for (const QString& sql : stmts) {
+        if (!executeSql(sql)) {
+            if (txnStarted) {
+                rollbackTransaction();
+            }
+            return false;
+        }
+    }
+    if (txnStarted && !commitTransaction()) {
+        return false;
+    }
+    return true;
 }
 

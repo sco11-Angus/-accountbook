@@ -4,12 +4,40 @@
 #include "account_record.h"
 #include "AccountBookRecordWidget.h"
 #include "AccountBookMainWidget.h"
+#include "sqlite_helper.h"
+#include "server_main.h"
 #include <QApplication>
 #include <QObject>
+#include <QDebug>
+#include <QStandardPaths>
+#include <QDir>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+
+    // 1. 初始化数据库
+    QString dbDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir dir(dbDir);
+    if (!dir.exists()) {
+        dir.mkpath(dbDir);
+    }
+    QString dbPath = dbDir + "/account_book.db";
+    
+    SqliteHelper* dbHelper = SqliteHelper::getInstance();
+    if (!dbHelper->openDatabase(dbPath)) {
+        qCritical() << "数据库初始化失败，程序即将退出";
+        return -1;
+    }
+
+    // 2. 启动服务端 (监听端口 12345)
+    server_main server;
+    if (server.startServer(12345)) {
+        qDebug() << "服务端启动成功，监听端口: 12345";
+    } else {
+        qWarning() << "服务端启动失败，可能是端口被占用";
+    }
+
     LoginWidget loginWidget;
     MainWindow mainWindow; // 整合了账本界面的主窗口
     AccountBookMainWidget bookMainWidget; // 账本主界面

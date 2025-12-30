@@ -28,7 +28,8 @@ SOURCES += \
     user_manager.cpp \
     user_sync_client.cpp \
     LoginWidget.cpp \
-    RegisterWidget.cpp
+    RegisterWidget.cpp \
+    monthpickerdialog.cpp
 
 HEADERS += \
     account_add_widget.h \
@@ -54,7 +55,8 @@ HEADERS += \
     user_manager.h \
     user_sync_client.h \
     LoginWidget.h \
-    RegisterWidget.h
+    RegisterWidget.h \
+    monthpickerdialog.h
 
 FORMS += \
     mainwindow.ui

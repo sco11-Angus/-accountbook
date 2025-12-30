@@ -10,6 +10,7 @@
 #include <QListWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QDate>
 
 class AccountBookMainWidget : public QWidget
 {
@@ -19,9 +20,19 @@ public:
     explicit AccountBookMainWidget(QWidget *parent = nullptr);
     void updateBillData(const QList<QMap<QString, QString>>& billList);
 
+private slots:
+    void onPrevMonth();
+    void onNextMonth();
+    void onMonthLabelClicked();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void initUI();
     void initStyleSheet();
+    void updateDateDisplay();
+    void loadBillsForMonth();
 
     // 工具函数 - 创建单个账单项（核心动态生成逻辑）
     QWidget* createBillItemWidget(const QString& date, const QString& cateIcon,
@@ -29,6 +40,8 @@ private:
                                   const QString& amount, bool isExpense);
     // 更新收支统计（总支出/总收入/结余）
     void updateStatistic(double totalExpense, double totalIncome);
+
+    QDate m_currentDate; // 当前显示的月份
 
     // 顶部控件
     QComboBox *m_bookSwitchCombo; // 账本切换
