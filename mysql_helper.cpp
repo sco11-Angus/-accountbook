@@ -29,6 +29,7 @@ bool MySqlHelper::connect(const QString& host, int port, const QString& username
     if (QSqlDatabase::contains("mysql_connection")) {
         m_db = QSqlDatabase::database("mysql_connection");
         if (m_db.isOpen()) {
+            m_isConnected = true;
             return true;
         }
     }
@@ -360,10 +361,14 @@ QSqlQuery MySqlHelper::executeQueryWithParams(const QString& sql, const QVariant
 
 bool MySqlHelper::beginTransaction() {
     if (!isConnected()) {
-        m_lastError = "数据库未连接";
+        m_lastError = QString("数据库未连接 (isConnected=%1, isOpen=%2)").arg(m_isConnected).arg(m_db.isOpen());
         return false;
     }
-    return m_db.transaction();
+    bool ok = m_db.transaction();
+    if (!ok) {
+        m_lastError = "MySQL 事务开启失败: " + m_db.lastError().text();
+    }
+    return ok;
 }
 
 bool MySqlHelper::commitTransaction() {

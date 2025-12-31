@@ -33,15 +33,16 @@ DBManager* DBManager::getInstance() {
 
 bool DBManager::initialize(const QString& localDbPath) {
     m_localDb = SqliteHelper::getInstance();
-    if (!m_localDb->openDatabase(localDbPath)) {
-        setError("本地数据库初始化失败: " + m_localDb->getLastError());
-        return false;
+    bool localOk = m_localDb->openDatabase(localDbPath);
+    if (!localOk) {
+        qWarning() << "本地数据库初始化失败（可能在服务器环境）: " << m_localDb->getLastError();
+        // 不直接返回 false，因为后续可能只使用远程数据库
     }
 
     m_remoteDb = MySqlHelper::getInstance();
     m_isInitialized = true;
-    qDebug() << "DBManager初始化成功";
-    return true;
+    qDebug() << "DBManager初始化标记已设置";
+    return true; // 总是返回 true，允许后续连接远程数据库
 }
 
 bool DBManager::connectRemoteDatabase(const QString& host, int port,

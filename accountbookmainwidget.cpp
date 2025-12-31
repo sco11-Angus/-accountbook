@@ -1,12 +1,10 @@
 #include "AccountBookMainWidget.h"
+#include "bill_service.h"
 #include "AccountBookRecordWidget.h"
-<<<<<<< HEAD
 #include "monthpickerdialog.h"
 #include "sqlite_helper.h"
-=======
 #include "account_manager.h"
 #include "user_manager.h"
->>>>>>> origin/branch
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>
@@ -18,17 +16,47 @@
 #include <QFont>
 #include <QRegularExpression>
 #include <QString>
-<<<<<<< HEAD
 #include <QDate>
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDebug>
 #include <QEvent>
 #include <QMouseEvent>
-=======
-#include <QDebug>
-#include <QDate>
->>>>>>> origin/branch
+#include <QFile>
+
+// 静态辅助函数：获取分类名称到拼音的映射（与 AccountBookRecordWidget 保持一致）
+static QMap<QString, QString> getCategoryPinyinMap() {
+    QMap<QString, QString> cateMap;
+    // 支出分类
+    cateMap["餐饮"] = "canyin";
+    cateMap["服饰"] = "fushi";
+    cateMap["日用"] = "riyong";
+    cateMap["数码"] = "shuma";
+    cateMap["美妆"] = "meizhuang";
+    cateMap["软件"] = "ruanjian";
+    cateMap["住房"] = "zhufang";
+    cateMap["交通"] = "jiaotong";
+    cateMap["娱乐"] = "yule";
+    cateMap["医疗"] = "yiliao";
+    cateMap["通讯"] = "tongxun";
+    cateMap["汽车"] = "qiche";
+    cateMap["学习"] = "xuexi";
+    cateMap["办公"] = "bangong";
+    cateMap["运动"] = "yundong";
+    cateMap["社交"] = "shejiao";
+    cateMap["宠物"] = "chongwu";
+    cateMap["旅行"] = "lvxing";
+    cateMap["育儿"] = "yuer";
+    cateMap["其他"] = "qita";
+    // 收入分类
+    cateMap["副业"] = "fuye";
+    cateMap["工资"] = "gongzi";
+    cateMap["红包"] = "hongbao";
+    cateMap["兼职"] = "jianzhi";
+    cateMap["投资"] = "touzi";
+    cateMap["意外收入"] = "yiwaishouru";
+    return cateMap;
+}
 
 AccountBookMainWidget::AccountBookMainWidget(QWidget *parent)
     : QWidget(parent), m_currentDate(QDate::currentDate())
@@ -53,8 +81,13 @@ AccountBookMainWidget::AccountBookMainWidget(QWidget *parent)
         // 不设置父对象，作为顶层窗口单独显示
         auto *recordWidget = new AccountBookRecordWidget(nullptr);
         recordWidget->setAttribute(Qt::WA_DeleteOnClose); // 关闭自动释放
-        // 记账完成后刷新列表
+        
+        // 记账完成后立即刷新列表（不需要等窗口销毁）
+        connect(recordWidget, &AccountBookRecordWidget::billRecorded, this, &AccountBookMainWidget::loadBillsForMonth);
+        
+        // 窗口销毁时也刷新一次作为兜底
         connect(recordWidget, &QWidget::destroyed, this, &AccountBookMainWidget::loadBillsForMonth);
+        
         recordWidget->show();
         recordWidget->activateWindow();
         recordWidget->raise();
@@ -116,9 +149,6 @@ void AccountBookMainWidget::initUI()
     // 连接月份切换信号
     connect(m_prevMonthBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onPrevMonth);
     connect(m_nextMonthBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onNextMonth);
-
-    // 收支统计卡片（轻玻璃质感）
-
     // 收支统计卡片（轻玻璃质感）
     m_statCard = new QFrame();
     m_statCard->setObjectName("m_statCard");
@@ -180,7 +210,7 @@ void AccountBookMainWidget::initUI()
     m_addBtn->setObjectName("m_addBtn");
 }
 
-// ========== 新增：更新收支统计（核心动态函数） ==========
+// 更新收支统计（总支出/总收入/结余）
 void AccountBookMainWidget::updateStatistic(double totalExpense, double totalIncome)
 {
     double surplus = totalIncome - totalExpense;
@@ -198,115 +228,149 @@ void AccountBookMainWidget::updateStatistic(double totalExpense, double totalInc
     m_monthSurplusLabel->setText(surplusText);
 }
 
-// ========== 新增：创建单个账单项（通用工具函数） ==========
-QWidget* AccountBookMainWidget::createBillItemWidget(const QString& date, const QString& cateIcon,
-                                                     const QString& cateName, const QString& time,
-                                                     const QString& amount, bool isExpense)
-{
-    QWidget *itemWidget = new QWidget();
-    QVBoxLayout *itemLayout = new QVBoxLayout(itemWidget);
-
-    // 日期行（如：12/18 星期四）
-    QHBoxLayout *dateLayout = new QHBoxLayout();
-    dateLayout->addWidget(new QLabel(date));
-    dateLayout->addStretch();
-    // 该日期的收支小计（需从账单数据汇总，这里先占位，实际可传参数）
-    dateLayout->addWidget(new QLabel(QString("支出:¥%1 收入:¥%2").arg(isExpense ? amount : "0").arg(!isExpense ? amount : "0")));
-    itemLayout->addLayout(dateLayout);
-
-    // 账单详情行
-    QHBoxLayout *billItemLayout = new QHBoxLayout();
-    // 分类图标（如“餐”“奖”）
-    QLabel *iconLabel = new QLabel(cateIcon);
-    iconLabel->setFixedSize(30, 30);
-    QString bgColor = isExpense ? "#FF6B6B" : "#4CAF50"; // 支出红、收入绿
-    iconLabel->setStyleSheet(QString("background-color: %1; border-radius: 15px; color: white; text-align: center;").arg(bgColor));
-    billItemLayout->addWidget(iconLabel);
-
-    // 分类名称+时间（如“餐饮-三餐\n18:07 · 晚”）
-    billItemLayout->addWidget(new QLabel(QString("%1\n%2").arg(cateName).arg(time)));
-    billItemLayout->addStretch();
-
-    // 金额（支出带-，收入带+）
-    QString amountText = isExpense ? QString("-%1").arg(amount) : QString("+%1").arg(amount);
-    billItemLayout->addWidget(new QLabel(amountText));
-    itemLayout->addLayout(billItemLayout);
-
-    return itemWidget;
-}
-
 // ========== 新增：批量更新账单列表（核心动态函数） ==========
 void AccountBookMainWidget::updateBillData(const QList<QMap<QString, QString>>& billList)
 {
-    // 清空原有列表
     m_billListWidget->clear();
 
-    // 如果无数据，显示空状态
     if (billList.isEmpty()) {
         QListWidgetItem *emptyItem = new QListWidgetItem(m_billListWidget);
         QWidget *emptyWidget = new QWidget();
+        // 动态计算高度：listWidget高度 - 顶部卡片和边距的估算高度
+        // 这里设为一个较大的固定值或者让它拉伸
+        emptyWidget->setMinimumHeight(350); 
+        
         QLabel *emptyLabel = new QLabel("本月暂无数据");
-        emptyLabel->setStyleSheet("color: #999; padding: 20px 0; font-size: 16px;");
+        emptyLabel->setStyleSheet("color: #999; font-size: 16px; font-weight: 500;");
         emptyLabel->setAlignment(Qt::AlignCenter);
+        
         QVBoxLayout *emptyLayout = new QVBoxLayout(emptyWidget);
-        emptyLayout->addWidget(emptyLabel, 0, Qt::AlignCenter);
-        emptyItem->setSizeHint(QSize(0, 300));
+        emptyLayout->addStretch(1);
+        emptyLayout->addWidget(emptyLabel);
+        emptyLayout->addStretch(1);
+        
+        emptyItem->setSizeHint(QSize(0, 350));
+        emptyItem->setFlags(Qt::NoItemFlags); // 不可交互
         m_billListWidget->setItemWidget(emptyItem, emptyWidget);
-
-        // 同时更新收支统计为0
-        updateStatistic(0.0, 0.0);
+        updateStatistic(0, 0);
         return;
     }
 
-    // 动态生成账单项
+    // 按日期分组
+    QMap<QString, QList<QMap<QString, QString>>> groupedBills;
+    QStringList dateOrder; // 保持日期顺序
     double totalExpense = 0.0;
     double totalIncome = 0.0;
 
     for (const QMap<QString, QString>& bill : billList) {
+        QString date = bill["date"];
+        if (!groupedBills.contains(date)) {
+            dateOrder.append(date);
+        }
+        groupedBills[date].append(bill);
+        
         double amount = bill["amount"].toDouble();
-        bool isExpense  = (bill["isExpense"] == "true");
-
-        QListWidgetItem *item = new QListWidgetItem(m_billListWidget);
-        QWidget *itemWidget = new QWidget();
-        QVBoxLayout *itemLayout = new QVBoxLayout(itemWidget);
-        itemLayout->setContentsMargins(15, 10, 15, 10);
-
-        QHBoxLayout *dateLayout = new QHBoxLayout();
-        QLabel *dateLabel = new QLabel(bill["date"]);
-        dateLabel->setStyleSheet("color: #666; font-size: 12px;");
-        dateLayout->addWidget(dateLabel);
-        dateLayout->addStretch();
-        
-        QLabel *summaryLabel = new QLabel(QString("%1¥%2").arg(isExpense ? "支出:" : "收入:", 
-                                         QString::number(amount, 'f', 2)));
-        summaryLabel->setStyleSheet("color: #999; font-size: 12px;");
-        dateLayout->addWidget(summaryLabel);
-        itemLayout->addLayout(dateLayout);
-
-        QHBoxLayout *billLayout = new QHBoxLayout();
-        QLabel *iconLabel = new QLabel(bill["cateIcon"]);
-        iconLabel->setFixedSize(35, 35);
-        iconLabel->setAlignment(Qt::AlignCenter);
-        iconLabel->setStyleSheet(QString("background-color: %1; border-radius: 17px; color: white; font-weight: bold; font-size: 14px;")
-                                     .arg(isExpense ? "#FF6B6B" : "#4CAF50"));
-        billLayout->addWidget(iconLabel);
-        
-        QLabel *infoLabel = new QLabel(QString("<b>%1</b><br><font color='#999' size='2'>%2</font>").arg(bill["cateName"], bill["time"]));
-        billLayout->addWidget(infoLabel);
-        billLayout->addStretch();
-        
-        QLabel *amountLabel = new QLabel(QString("%1¥%2").arg(isExpense ? "-" : "+", 
-                                         QString::number(amount, 'f', 2)));
-        amountLabel->setStyleSheet(QString("font-weight: bold; font-size: 16px; color: %1;")
-                                    .arg(isExpense ? "#333" : "#4CAF50"));
-        billLayout->addWidget(amountLabel);
-        itemLayout->addLayout(billLayout);
-
-        item->setSizeHint(itemWidget->sizeHint());
-        m_billListWidget->setItemWidget(item, itemWidget);
-
-        if (isExpense) totalExpense += amount;
+        if (bill["isExpense"] == "true") totalExpense += amount;
         else totalIncome += amount;
+    }
+
+    // 获取分类图标映射
+    static QMap<QString, QString> pinyinMap = getCategoryPinyinMap();
+
+    // 渲染分组数据
+    for (const QString& date : dateOrder) {
+        // 1. 添加日期抬头
+        QListWidgetItem *headerItem = new QListWidgetItem(m_billListWidget);
+        QWidget *headerWidget = new QWidget();
+        headerWidget->setStyleSheet("background-color: transparent;");
+        QHBoxLayout *headerLayout = new QHBoxLayout(headerWidget);
+        headerLayout->setContentsMargins(15, 10, 15, 5);
+
+        QLabel *dateLabel = new QLabel(date);
+        dateLabel->setStyleSheet("color: #999; font-size: 13px; font-weight: bold;");
+        headerLayout->addWidget(dateLabel);
+        headerLayout->addStretch();
+
+        // 计算该日支出（可选，参考图中右上角）
+        double dayExpense = 0;
+        for (const auto& b : groupedBills[date]) {
+            if (b["isExpense"] == "true") dayExpense += b["amount"].toDouble();
+        }
+        if (dayExpense > 0) {
+            QLabel *dayStatLabel = new QLabel(QString("支出: ¥%1").arg(QString::number(dayExpense, 'f', 2)));
+            dayStatLabel->setStyleSheet("color: #999; font-size: 12px;");
+            headerLayout->addWidget(dayStatLabel);
+        }
+
+        headerItem->setSizeHint(headerWidget->sizeHint());
+        headerItem->setFlags(headerItem->flags() & ~Qt::ItemIsSelectable); // 抬头不可选中
+        m_billListWidget->setItemWidget(headerItem, headerWidget);
+
+        // 2. 添加该日期下的所有账单项
+        for (const QMap<QString, QString>& bill : groupedBills[date]) {
+            double amount = bill["amount"].toDouble();
+            bool isExpense = (bill["isExpense"] == "true");
+            QString cateName = bill["cateName"];
+            QString time = bill["time"];
+
+            QListWidgetItem *item = new QListWidgetItem(m_billListWidget);
+            
+            // 外层容器，负责边距
+            QWidget *container = new QWidget();
+            QVBoxLayout *containerLayout = new QVBoxLayout(container);
+            containerLayout->setContentsMargins(15, 4, 15, 4);
+            
+            // 内层卡片，负责背景和样式
+            QWidget *itemWidget = new QWidget();
+            itemWidget->setObjectName("billItemWidget");
+            QHBoxLayout *itemLayout = new QHBoxLayout(itemWidget);
+            itemLayout->setContentsMargins(12, 10, 12, 10);
+            itemLayout->setSpacing(12);
+
+            // 图标
+            QLabel *iconLabel = new QLabel();
+            iconLabel->setFixedSize(40, 40);
+            QString pinyin = pinyinMap.value(cateName, "qita");
+            QString imgDir = isExpense ? "classify1" : "classify2";
+            QString iconPath = QString(":/%1/resources/%2/%3.jpg").arg(imgDir).arg(imgDir).arg(pinyin);
+            
+            if (QFile::exists(iconPath)) {
+                QPixmap pix(iconPath);
+                iconLabel->setPixmap(pix.scaled(40, 40, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                iconLabel->setStyleSheet("border-radius: 20px; overflow: hidden; background-color: #F8F8F8;");
+            } else {
+                // 兜底：显示文字首字母
+                iconLabel->setText(cateName.left(1));
+                iconLabel->setAlignment(Qt::AlignCenter);
+                iconLabel->setStyleSheet(QString("background-color: %1; border-radius: 20px; color: white; font-weight: bold;")
+                                         .arg(isExpense ? "#FF6B6B" : "#4CAF50"));
+            }
+            itemLayout->addWidget(iconLabel);
+
+            // 信息列（分类名称 + 时间）
+            QVBoxLayout *infoLayout = new QVBoxLayout();
+            infoLayout->setSpacing(2);
+            QLabel *nameLabel = new QLabel(cateName);
+            nameLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #333;");
+            QLabel *timeLabel = new QLabel(time);
+            timeLabel->setStyleSheet("font-size: 11px; color: #999;");
+            infoLayout->addWidget(nameLabel);
+            infoLayout->addWidget(timeLabel);
+            itemLayout->addLayout(infoLayout);
+
+            itemLayout->addStretch();
+
+            // 金额
+            QLabel *amountLabel = new QLabel(QString("%1%2").arg(isExpense ? "-" : "+", 
+                                             QString::number(amount, 'f', 2)));
+            amountLabel->setStyleSheet(QString("font-size: 16px; font-weight: bold; color: %1;")
+                                        .arg(isExpense ? "#333" : "#4CAF50"));
+            itemLayout->addWidget(amountLabel);
+
+            containerLayout->addWidget(itemWidget);
+            item->setSizeHint(container->sizeHint());
+            m_billListWidget->setItemWidget(item, container);
+        }
     }
 
     updateStatistic(totalExpense, totalIncome);
@@ -343,31 +407,29 @@ void AccountBookMainWidget::updateDateDisplay()
 
 void AccountBookMainWidget::loadBillsForMonth()
 {
-    // 获取当月开始和结束时间
-    QString startTime = m_currentDate.toString("yyyy-MM-01 00:00:00");
-    QString endTime = m_currentDate.addMonths(1).addDays(-m_currentDate.addMonths(1).day() + 1).addDays(-1).toString("yyyy-MM-dd 23:59:59");
-    
-    // 获取当月最后一天
-    QDate lastDayOfMonth = m_currentDate.addMonths(1).addDays(-1);
-    endTime = lastDayOfMonth.toString("yyyy-MM-dd 23:59:59");
+    int userId = UserManager::getInstance()->getCurrentUser().getId();
+    if (userId <= 0) {
+        qDebug() << "未登录用户，无法加载账单";
+        return;
+    }
 
+    QList<AccountRecord> records = BillService::getMonthlyBills(userId, m_currentDate);
     QList<QMap<QString, QString>> billList;
     
-    // 从数据库查询
-    QString sql = QString("SELECT * FROM account_record WHERE create_time >= '%1' AND create_time <= '%2' AND is_deleted = 0 ORDER BY create_time DESC")
-                  .arg(startTime).arg(endTime);
-                  
-    QSqlQuery query = SqliteHelper::getInstance()->executeQuery(sql);
-    while (query.next()) {
+    for (const AccountRecord& record : records) {
         QMap<QString, QString> bill;
-        QDateTime dt = QDateTime::fromString(query.value("create_time").toString(), "yyyy-MM-dd HH:mm:ss");
+        QDateTime dt = QDateTime::fromString(record.getCreateTime(), "yyyy-MM-dd HH:mm:ss");
         
         bill["date"] = dt.toString("MM/dd ") + dt.date().toString("ddd");
         bill["time"] = dt.toString("HH:mm");
-        bill["cateName"] = query.value("type").toString();
-        bill["cateIcon"] = bill["cateName"].left(1); // 暂时取第一个字作为图标
-        bill["amount"] = QString::number(query.value("amount").toDouble(), 'f', 2);
-        bill["isExpense"] = (query.value("is_income").toInt() == 0) ? "true" : "false";
+        bill["cateName"] = record.getType();
+        bill["cateIcon"] = bill["cateName"].left(1); 
+        
+        double amount = record.getAmount();
+        bool isExpense = (amount < 0);
+        
+        bill["amount"] = QString::number(qAbs(amount), 'f', 2); // UI 显示绝对值
+        bill["isExpense"] = isExpense ? "true" : "false";
         
         billList.append(bill);
     }
@@ -383,8 +445,6 @@ bool AccountBookMainWidget::eventFilter(QObject *watched, QEvent *event)
     }
     return QWidget::eventFilter(watched, event);
 }
-
-
 
 void AccountBookMainWidget::initStyleSheet()
 {
@@ -436,11 +496,19 @@ void AccountBookMainWidget::initStyleSheet()
         QListWidget {
             background-color: transparent;
             border: none;
+            outline: none;
         }
         QListWidget::item {
-            background-color: rgba(255, 255, 255, 0.8);
-            border-radius: 15px;
-            padding: 10px;
+            background-color: transparent;
+            padding: 0px;
+            margin: 0px;
+        }
+        QListWidget::item:selected {
+            background-color: transparent;
+        }
+        QWidget#billItemWidget {
+            background-color: white;
+            border-radius: 12px;
         }
         QPushButton#m_bookNavBtn:checked {
             color: #FFB6C1;

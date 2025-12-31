@@ -1,5 +1,5 @@
 QT       += core gui sql widgets network
-
+QT += core gui network sql  
 CONFIG += c++17
 
 
@@ -31,8 +31,7 @@ SOURCES += \
     user_sync_client.cpp \
     LoginWidget.cpp \
     RegisterWidget.cpp \
-    monthpickerdialog.cpp \
-    bill_service.cpp
+    monthpickerdialog.cpp
 
 HEADERS += \
     account_add_widget.h \
@@ -62,8 +61,7 @@ HEADERS += \
     user_sync_client.h \
     LoginWidget.h \
     RegisterWidget.h \
-    monthpickerdialog.h \
-    bill_service.h
+    monthpickerdialog.h
 
 FORMS += \
     mainwindow.ui

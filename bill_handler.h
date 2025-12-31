@@ -6,6 +6,7 @@
 #include <QString>
 #include <QList>
 #include "account_record.h"
+#include "account_manager.h"
 
 class MySqlHelper;
 
@@ -26,6 +27,7 @@ public:
 
 private:
     MySqlHelper* m_dbHelper;
+    AccountManager* m_accountManager;
     
     // 直接操作 MySQL bill 表
     bool insertBillToDatabase(const AccountRecord& record, int defaultBookId = 1);

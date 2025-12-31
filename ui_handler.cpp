@@ -1,4 +1,6 @@
 #include "ui_handler.h"
+#include "bill_service.h"
+#include <QDebug>
 
 UIHandler::UIHandler(QObject *parent) : QObject(parent)
 {
@@ -69,8 +71,8 @@ bool UIHandler::addRecord(const AccountRecord& record)
         return false;
     }
 
-    bool success = m_accountManager->addAccountRecord(record);
-    emit recordAdded(success, success ? "记录添加成功" : "记录添加失败");
+    bool success = BillService::saveBill(record);
+    emit recordAdded(success, success ? "记录已保存并开始同步" : "记录保存失败");
     return success;
 }
 

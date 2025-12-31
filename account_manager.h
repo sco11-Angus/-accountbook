@@ -12,8 +12,8 @@ class AccountManager {
 public:
     AccountManager();
 
-    // 快速记账
-    bool addAccountRecord(const AccountRecord& record);
+    // 快速记账（返回新插入记录的ID，失败返回-1）
+    int addAccountRecord(const AccountRecord& record);
     // 编辑单条记录
     bool editAccountRecord(const AccountRecord& record);
     // 批量编辑记录
@@ -54,7 +54,6 @@ public:
 
 private:
     SqliteHelper* m_dbHelper = SqliteHelper::getInstance();
-    
     // 将账单记录同步到服务端
     void syncRecordToServer(const AccountRecord& record);
     void syncEditRecordToServer(const AccountRecord& record);

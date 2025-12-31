@@ -1,4 +1,5 @@
 #include "accountbookrecordwidget.h"
+#include "bill_service.h"
 #include <QFont>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -573,22 +574,35 @@ void AccountBookRecordWidget::createKeyboard()
         qDebug() << "创建时间:" << record.getCreateTime();
         qDebug() << "================";
 
-        // 8. 调用 AccountManager 保存到数据库
-        AccountManager accountManager;
-        bool saveSuccess = accountManager.addAccountRecord(record);
-        
-        if (!saveSuccess) {
-            QMessageBox::critical(this, "错误", "保存记录失败，请重试");
+        // 8. 调用 BillService 保存到数据库（本地+同步）
+        // 禁用保存按钮，防止重复提交
+        sender()->setProperty("disabled", true);
+        if (QPushButton* btn = qobject_cast<QPushButton*>(sender())) {
+            btn->setEnabled(false);
+        }
+
+        // 监听保存结果信号
+        // 注意：这里使用 context 对象 'this'，当 widget 销毁时连接会自动断开
+        connect(BillService::getInstance(), &BillService::billSaved, this, [=](bool success, const QString& message) {
+            if (success) {
+                QMessageBox::information(this, "成功", message);
+                emit billRecorded();
+                this->close();
+            } else {
+                QMessageBox::critical(this, "错误", message);
+                // 失败了重新启用按钮
+                if (QPushButton* btn = qobject_cast<QPushButton*>(sender())) {
+                    btn->setEnabled(true);
+                }
+            }
+        });
+
+        bool success = BillService::saveBill(record);
+        if (!success) {
+            // 如果 saveBill 返回 false，说明本地保存就失败了，上面的 lambda 会处理信号
+            // 但为了保险，这里也可以做简单处理
             return;
         }
-        
-        QMessageBox::information(this, "成功", "账单记录已保存");
-
-        // 9. 发送成功信号
-        emit billRecorded();
-        
-        // 10. 关闭窗口
-        this->close();
     });
 }
 

@@ -12,7 +12,7 @@ AccountManager::AccountManager() {
     m_dbHelper->openDatabase();
 }
 
-bool AccountManager::addAccountRecord(const AccountRecord& record) {
+int AccountManager::addAccountRecord(const AccountRecord& record) {
     QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
 
     // 使用参数化查询，防止 SQL 注入，并避免特殊字符导致的问题
@@ -38,13 +38,19 @@ bool AccountManager::addAccountRecord(const AccountRecord& record) {
                  << "分类=" << record.getType()
                  << "时间=" << record.getCreateTime();
 
-        // 同步到服务端
-        syncRecordToServer(record);
+        // 同步到服务端 (已迁移到 BillService 处理)
+        // syncRecordToServer(record);
+
+        // 获取最后插入的ID
+        QSqlQuery query = m_dbHelper->executeQuery("SELECT last_insert_rowid()");
+        if (query.next()) {
+            return query.value(0).toInt();
+        }
     } else {
         qDebug() << "账单保存失败：" << m_dbHelper->getLastError();
     }
     
-    return success;
+    return -1;
 }
 
 bool AccountManager::editAccountRecord(const AccountRecord& record) {
@@ -185,8 +191,6 @@ int AccountManager::getRecordCount(int userId, bool isDeleted) {
     }
     return 0;
 }
-
-
 void AccountManager::syncRecordToServer(const AccountRecord& record)
 {
     // 获取全局 TCP 客户端

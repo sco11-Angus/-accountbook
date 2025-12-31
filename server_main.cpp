@@ -35,10 +35,21 @@ bool server_main::startServer(quint16 port)
     if (success) {
         qDebug() << "服务器主程序启动成功，监听端口:" << port;
     }
-
+    
+    // 初始化数据库管理器
     s_dbmanger = DBManager::getInstance();
-    s_dbmanger->connectRemoteDatabase("localhost", 3306, "root", "CcSs123456@", "account_book_server");
-
+    // 服务器端也需要初始化 DBManager
+    s_dbmanger->initialize();
+    
+    // 连接远程 MySQL 数据库
+    // 注意：这里的 localhost, root, CcSs123456@ 是根据常见设置提供的默认值，如果您的数据库环境不同请修改
+    if (!s_dbmanger->connectRemoteDatabase("localhost", 3306, "root", "CcSs123456@", "account_book_server")) {
+        qWarning() << "远程数据库连接失败:" << s_dbmanger->getLastError();
+        qWarning() << "请检查: 1. MySQL服务是否启动 2. 用户名密码是否正确 3. 数据库驱动是否安装";
+    } else {
+        qDebug() << "远程数据库连接成功，状态:" << (s_dbmanger->isRemoteConnected() ? "在线" : "离线");
+    }
+    
     return success;
 }
 

@@ -29,7 +29,6 @@ private slots:
 private:
     tcp_server* m_tcpServer;
     bill_handler* m_billHandler;
-
     DBManager* s_dbmanger;
     
     // 获取客户端socket

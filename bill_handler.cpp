@@ -9,15 +9,21 @@
 #include <QSqlRecord>
 #include <QVariantList>
 #include "mysql_helper.h"
+#include "sqlite_helper.h"
 
 bill_handler::bill_handler()
     : m_dbHelper(MySqlHelper::getInstance())
 {
+    m_accountManager = new AccountManager();
 }
 
 bill_handler::~bill_handler()
 {
     // MySqlHelper 是单例，不需要手动删除
+    if (m_accountManager) {
+        delete m_accountManager;
+        m_accountManager = nullptr;
+    }
 }
 
 QJsonObject bill_handler::handleSyncBills(const QJsonObject& request)
@@ -46,13 +52,17 @@ QJsonObject bill_handler::handleSyncBills(const QJsonObject& request)
     
     // 开启事务处理批量同步
     if (!m_dbHelper->beginTransaction()) {
+        QString error = m_dbHelper->getLastError();
         response["success"] = false;
-        response["message"] = "无法开启事务";
+        response["message"] = "同步失败：无法开启数据库事务 (" + error + ")";
+        qWarning() << "【handleSyncBills】无法开启事务:" << error;
         return response;
     }
     
     int successCount = 0;
     int failCount = 0;
+    QList<AccountRecord> recordsToSync;
+    QJsonArray billsResponseArray;  // 用于返回 localId 和 serverId 映射
     
     // 解析账单数据并直接插入到 MySQL bill 表
     for (const QJsonValue& value : billsArray) {
@@ -92,7 +102,6 @@ QJsonObject bill_handler::handleSyncBills(const QJsonObject& request)
         response["failCount"] = failCount;
         qWarning() << "【handleSyncBills】同步失败，已回滚事务";
     }
-    
     return response;
 }
 
@@ -137,26 +146,13 @@ QJsonObject bill_handler::handleQueryBills(const QJsonObject& request)
         FROM bill WHERE user_id = %1 AND is_deleted = %2
     )").arg(userId).arg(isDeleted ? 1 : 0);
     
-    // 添加分类筛选
-    if (!type.isEmpty()) {
-        int categoryId = queryCategoryId(type, userId);
-        if (categoryId > 0) {
-            sql += QString(" AND category_id = %1").arg(categoryId);
-        }
-    }
-    
-    // 添加日期范围筛选
+    // 添加其他条件（可选）
     if (!timeRange.isEmpty()) {
+        // 解析 timeRange (yyyy-MM-dd-yyyy-MM-dd)
         QStringList parts = timeRange.split("-");
         if (parts.size() == 2) {
-            sql += QString(" AND bill_date BETWEEN '%1' AND '%2'").arg(parts[0]).arg(parts[1]);
+            sql += QString(" AND bill_date >= '%1' AND bill_date <= '%2'").arg(parts[0]).arg(parts[1]);
         }
-    }
-    
-    // 添加金额范围筛选
-    if (minAmount > 0 || maxAmount > 0) {
-        if (minAmount > 0) sql += QString(" AND amount >= %1").arg(minAmount);
-        if (maxAmount > 0) sql += QString(" AND amount <= %1").arg(maxAmount);
     }
     
     sql += " ORDER BY bill_date DESC";
@@ -335,8 +331,21 @@ AccountRecord bill_handler::jsonToRecord(const QJsonObject& json)
     if (json.contains("voucherPath")) record.setVoucherPath(json["voucherPath"].toString());
     if (json.contains("isDeleted")) record.setIsDeleted(json["isDeleted"].toInt());
     if (json.contains("deleteTime")) record.setDeleteTime(json["deleteTime"].toString());
-    if (json.contains("createTime")) record.setCreateTime(json["createTime"].toString());
-    if (json.contains("modifyTime")) record.setModifyTime(json["modifyTime"].toString());
+    
+    // 处理时间格式，确保统一为 yyyy-MM-dd HH:mm:ss
+    QString createTime = json.contains("createTime") ? json["createTime"].toString() : "";
+    QString modifyTime = json.contains("modifyTime") ? json["modifyTime"].toString() : "";
+    
+    // 如果时间格式不正确，使用当前时间
+    if (createTime.isEmpty()) {
+        createTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    }
+    if (modifyTime.isEmpty()) {
+        modifyTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    }
+    
+    record.setCreateTime(createTime);
+    record.setModifyTime(modifyTime);
     
     return record;
 }
@@ -402,8 +411,8 @@ bool bill_handler::insertBillToDatabase(const AccountRecord& record, int default
     }
     
     // 2. 确定账单类型（0=支出，1=收入）
-    // 根据 remark 中的关键字判断，或使用默认的 0（支出）
-    int type = 0;  // 默认为支出
+    // 根据金额正负判断：正数为收入(1)，负数为支出(0)
+    int type = (record.getAmount() >= 0) ? 1 : 0;
     
     // 3. 构造 SQL 插入语句
     QString sql = R"(
@@ -440,5 +449,3 @@ bool bill_handler::insertBillToDatabase(const AccountRecord& record, int default
     
     return success;
 }
-
-// ================================================================

@@ -1,6 +1,14 @@
 #include "tcpclient.h"
 #include <QDebug>
 #include <QJsonParseError>
+#include <QDateTime>
+#include <QMutex>
+
+TcpClient* TcpClient::getInstance()
+{
+    static TcpClient instance;
+    return &instance;
+}
 
 TcpClient::TcpClient(QObject *parent)
     : QObject(parent)
@@ -70,32 +78,63 @@ bool TcpClient::syncBills(const QList<AccountRecord>& bills)
         return false;
     }
     
+    if (bills.isEmpty()) {
+        qDebug() << "账单列表为空，无法同步";
+        return false;
+    }
+    
+    // 获取用户ID（从第一条记录中获取）
+    int userId = bills.first().getUserId();
+    if (userId <= 0) {
+        qDebug() << "用户ID无效，无法同步";
+        emit errorOccurred("用户ID无效");
+        return false;
+    }
     // 构建JSON消息
     QJsonObject message;
     message["type"] = "sync_bills";
     message["action"] = "upload";
+    message["userId"] = userId;
     
     // 将账单列表转换为JSON数组
     QJsonArray billsArray;
     for (const AccountRecord& bill : bills) {
         QJsonObject billObj;
+        // 新增为0，更新时传实际ID
         billObj["id"] = bill.getId();
         billObj["userId"] = bill.getUserId();
+        // 支出为负，收入为正
         billObj["amount"] = bill.getAmount();
         billObj["type"] = bill.getType();
         billObj["remark"] = bill.getRemark();
         billObj["voucherPath"] = bill.getVoucherPath();
         billObj["isDeleted"] = bill.getIsDeleted();
         billObj["deleteTime"] = bill.getDeleteTime();
-        billObj["createTime"] = bill.getCreateTime();
-        billObj["modifyTime"] = bill.getModifyTime();
+        
+        // 确保时间格式统一为 yyyy-MM-dd HH:mm:ss
+        QString createTime = bill.getCreateTime();
+        QString modifyTime = bill.getModifyTime();
+        
+        // 如果时间格式不正确，尝试转换
+        if (!createTime.isEmpty() && !createTime.contains(" ")) {
+            // 如果只有日期，添加时间部分
+            createTime = createTime + " 00:00:00";
+        }
+        if (!modifyTime.isEmpty() && !modifyTime.contains(" ")) {
+            modifyTime = modifyTime + " 00:00:00";
+        }
+        
+        billObj["createTime"] = createTime.isEmpty() ? 
+            QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss") : createTime;
+        billObj["modifyTime"] = modifyTime.isEmpty() ? 
+            QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss") : modifyTime;
         billsArray.append(billObj);
     }
     
     message["bills"] = billsArray;
     message["count"] = bills.size();
     
-    qDebug() << "发送同步账单请求，账单数量:" << bills.size();
+    qDebug() << "发送同步账单请求，用户ID:" << userId << "账单数量:" << bills.size();
     return sendJsonMessage(message);
 }
 
@@ -220,7 +259,25 @@ void TcpClient::parseMessage(const QByteArray& data)
         // 处理同步账单响应
         bool success = message["success"].toBool();
         QString msg = message["message"].toString();
+        int successCount = message.contains("successCount") ? message["successCount"].toInt() : 0;
+        int failCount = message.contains("failCount") ? message["failCount"].toInt() : 0;
+        
         qDebug() << "同步账单响应:" << (success ? "成功" : "失败") << msg;
+        qDebug() << "成功:" << successCount << "失败:" << failCount;
+        
+        // 处理 localId 和 serverId 映射（如果存在）
+        if (success && message.contains("bills") && message["bills"].isArray()) {
+            QJsonArray billsArray = message["bills"].toArray();
+            for (const QJsonValue& value : billsArray) {
+                if (value.isObject()) {
+                    QJsonObject idMapping = value.toObject();
+                    int localId = idMapping["localId"].toInt();
+                    int serverId = idMapping["serverId"].toInt();
+                    qDebug() << "ID映射 - 本地ID:" << localId << "服务端ID:" << serverId;
+                    // 这里可以发出信号通知业务层更新本地ID映射
+                }
+            }
+        }
         emit syncBillsResponse(success, msg);
     }
     else if (type == "fetch_latest_response") {

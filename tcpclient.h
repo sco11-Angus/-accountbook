@@ -15,7 +15,7 @@ class TcpClient : public QObject
     Q_OBJECT
 
 public:
-    explicit TcpClient(QObject *parent = nullptr);
+    static TcpClient* getInstance();
     ~TcpClient();
 
     // 连接到服务端
@@ -57,6 +57,7 @@ private slots:
     void onError(QAbstractSocket::SocketError socketError);
 
 private:
+    explicit TcpClient(QObject *parent = nullptr);
     QTcpSocket* m_socket;
     QByteArray m_buffer;  // 用于存储不完整的数据
     
