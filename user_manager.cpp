@@ -133,9 +133,10 @@ bool UserManager::unlockAccount(const QString& account) {
 
 bool UserManager::updateUserInfo(const User& user) {
     QString sql = QString(R"(
-        UPDATE user SET nickname = '%1', avatar = '%2', gender = %3, pay_method = '%4'
-        WHERE id = %5
-    )").arg(user.getNickname())
+        UPDATE user SET account = '%1', nickname = '%2', avatar = '%3', gender = %4, pay_method = '%5'
+        WHERE id = %6
+    )").arg(user.getAccount())
+                      .arg(user.getNickname())
                       .arg(user.getAvatar())
                       .arg(user.getGender())
                       .arg(user.getPayMethod())

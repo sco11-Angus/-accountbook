@@ -7,13 +7,12 @@
 #include "db_models.h"
 
 class SqliteHelper;
-class MySqlHelper;
 
 /**
  * @file db_manager.h
  * @brief 数据库管理接口（核心业务层）
  * @details 统一的数据库访问接口，负责：
- *   - 本地SQLite和服务端MySQL的双库管理
+ *   - 本地SQLite和服务端SQLite的双库管理
  *   - 增删改查账单、用户、账本的标准接口
  *   - 本地缓存和服务端同步的协调
  */
@@ -32,11 +31,11 @@ public:
     bool initialize(const QString& localDbPath = "./account_book.db");
 
     /**
-     * @brief 连接到远程MySQL数据库
+     * @brief 连接到远程数据库 (SQLite模式下仅做占位)
      */
-    bool connectRemoteDatabase(const QString& host, int port,
-                               const QString& username, const QString& password,
-                               const QString& database);
+    bool connectRemoteDatabase(const QString& host = "", int port = 0,
+                               const QString& username = "", const QString& password = "",
+                               const QString& database = "");
 
     /**
      * @brief 断开远程数据库连接
@@ -246,7 +245,7 @@ private:
     static QMutex m_mutex;
 
     SqliteHelper* m_localDb = nullptr;      // 本地数据库
-    MySqlHelper* m_remoteDb = nullptr;      // 远程数据库
+    SqliteHelper* m_remoteDb = nullptr;      // SQLite模式下可能指向同一个或另一个SQLite实例
     QString m_lastError;
     bool m_isInitialized = false;
 

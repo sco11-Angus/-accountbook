@@ -27,6 +27,8 @@ public:
 
     // 同步账单到服务端
     bool syncBills(const QList<AccountRecord>& bills);
+    // 添加单条记录到服务端
+    bool addRecord(int userId, const AccountRecord& record);
     // 获取最新数据
     bool fetchLatestData(int userId, const QString& lastSyncTime = "");
     // 备份数据

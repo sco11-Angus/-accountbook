@@ -585,8 +585,9 @@ void AccountBookRecordWidget::createKeyboard()
         // 注意：这里使用 context 对象 'this'，当 widget 销毁时连接会自动断开
         connect(BillService::getInstance(), &BillService::billSaved, this, [=](bool success, const QString& message) {
             if (success) {
-                QMessageBox::information(this, "成功", message);
+                qDebug() << "记账保存成功信号已接收，准备刷新主界面并关闭窗口";
                 emit billRecorded();
+                QMessageBox::information(this, "成功", message);
                 this->close();
             } else {
                 QMessageBox::critical(this, "错误", message);

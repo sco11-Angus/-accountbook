@@ -1,5 +1,5 @@
 QT       += core gui sql widgets network
-
+QT += core gui network sql
 CONFIG += c++17
 
 
@@ -12,11 +12,11 @@ SOURCES += \
     accountbookrecordwidget.cpp \
     ai_manager.cpp \
     bill_handler.cpp \
+    bill_service.cpp \
     bill_sync_client.cpp \
     db_manager.cpp \
     main.cpp \
     mainwindow.cpp \
-    mysql_helper.cpp \
     server_main.cpp \
     sqlite_helper.cpp \
     statistics_manager.cpp \
@@ -24,7 +24,7 @@ SOURCES += \
     tcp_server.cpp \
     tcpclient.cpp \
     thread_manager.cpp \
-    user.cpp \
+    User.cpp \
     user_handler.cpp \
     user_info_widget.cpp \
     user_manager.cpp \
@@ -32,7 +32,9 @@ SOURCES += \
     LoginWidget.cpp \
     RegisterWidget.cpp \
     monthpickerdialog.cpp \
-    bill_service.cpp
+    settings_widget.cpp \
+    profile_edit_dialog.cpp \
+    bind_dialog.cpp
 
 HEADERS += \
     account_add_widget.h \
@@ -43,11 +45,11 @@ HEADERS += \
     accountbookrecordwidget.h \
     ai_manager.h \
     bill_handler.h \
+    bill_service.h \
     bill_sync_client.h \
     db_manager.h \
     db_models.h \
     mainwindow.h \
-    mysql_helper.h \
     server_main.h \
     sqlite_helper.h \
     statistics_manager.h \
@@ -55,7 +57,7 @@ HEADERS += \
     tcp_server.h \
     tcpclient.h \
     thread_manager.h \
-    user.h \
+    User.h \
     user_handler.h \
     user_info_widget.h \
     user_manager.h \
@@ -63,7 +65,10 @@ HEADERS += \
     LoginWidget.h \
     RegisterWidget.h \
     monthpickerdialog.h \
-    bill_service.h
+    settings_widget.h \
+    profile_edit_dialog.h \
+    bind_dialog.h \
+    currency_dialog.h
 
 FORMS += \
     mainwindow.ui

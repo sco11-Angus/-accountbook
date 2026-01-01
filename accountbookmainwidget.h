@@ -11,6 +11,8 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QDate>
+#include <QScrollArea>
+#include "settings_widget.h"
 
 class AccountBookMainWidget : public QWidget
 {
@@ -24,6 +26,8 @@ private slots:
     void onPrevMonth();
     void onNextMonth();
     void onMonthLabelClicked();
+    void onSearchTextChanged(const QString &text);
+    void onUserBtnClicked();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -44,7 +48,7 @@ private:
     QDate m_currentDate; // 当前显示的月份
 
     // 顶部控件
-    QComboBox *m_bookSwitchCombo; // 账本切换
+    QPushButton *m_userBtn;       // 用户按钮
     QLineEdit *m_searchEdit;      // 搜索框
     QPushButton *m_prevMonthBtn;  // 上月按钮
     QLabel *m_monthLabel;         // 月份显示

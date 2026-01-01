@@ -67,24 +67,108 @@ bool SqliteHelper::openDatabase(const QString& dbPath) {
     )";
     if (!executeSql(createUserTable)) return false;
 
-    // 创建收支记录表（支持软删除、凭证存储等）
+    // 创建收支记录表（通用：兼容客户端与服务端）
     QString createAccountTable = R"(
         CREATE TABLE IF NOT EXISTS account_record (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,      -- 关联用户ID
-            amount REAL NOT NULL,          -- 金额（正数收入/负数支出）
-            type TEXT NOT NULL,            -- 收支类型（餐饮/交通等）
-            is_income INTEGER NOT NULL DEFAULT 0,  -- 1:收入 0:支出
-            remark TEXT DEFAULT '',        -- 备注
-            voucher_path TEXT DEFAULT '',  -- 凭证图片路径
-            is_deleted INTEGER DEFAULT 0,  -- 0:正常 1:回收站（软删除）
-            delete_time TEXT DEFAULT '',   -- 删除时间（用于7天自动清理）
+            user_id INTEGER NOT NULL,      -- 用户ID
+            bill_date TEXT,                -- 账单日期 (yyyy-MM-dd HH:mm:ss)
+            amount REAL NOT NULL,          -- 金额
+            type INTEGER DEFAULT 0,        -- 类型 (0=支出, 1=收入)
+            category TEXT,                 -- 分类名称 (如: 餐饮, 服饰)
+            remark TEXT,                   -- 备注/描述
+            description TEXT,              -- 备注 (服务端兼容)
+            voucher_path TEXT,             -- 凭证路径
+            is_deleted INTEGER DEFAULT 0,  -- 是否删除
+            delete_time TEXT,              -- 删除时间
             create_time TEXT NOT NULL,     -- 创建时间
-            modify_time TEXT NOT NULL,     -- 修改时间
-            FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE  -- 级联删除
+            modify_time TEXT,              -- 修改时间
+            FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
         );
     )";
     if (!executeSql(createAccountTable)) return false;
+
+    // 升级表结构：确保旧表也有新列
+    executeSql("ALTER TABLE account_record ADD COLUMN category TEXT");
+    executeSql("ALTER TABLE account_record ADD COLUMN remark TEXT");
+    executeSql("ALTER TABLE account_record ADD COLUMN description TEXT");
+    executeSql("ALTER TABLE account_record ADD COLUMN bill_date TEXT");
+    executeSql("ALTER TABLE account_record ADD COLUMN modify_time TEXT");
+    executeSql("ALTER TABLE account_record ADD COLUMN voucher_path TEXT");
+    executeSql("ALTER TABLE account_record ADD COLUMN is_deleted INTEGER DEFAULT 0");
+    executeSql("ALTER TABLE account_record ADD COLUMN delete_time TEXT");
+
+    // --- 服务端兼容表结构 ---
+    // 创建账本表
+    QString createAccountBookTable = R"(
+        CREATE TABLE IF NOT EXISTS account_book (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            icon TEXT,
+            sort_order INTEGER DEFAULT 0,
+            create_time TEXT NOT NULL,
+            update_time TEXT,
+            is_deleted INTEGER DEFAULT 0,
+            sync_status INTEGER DEFAULT 0,
+            last_sync_time TEXT,
+            FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+        );
+    )";
+    if (!executeSql(createAccountBookTable)) return false;
+
+    // 创建账单分类表
+    QString createBillCategoryTable = R"(
+        CREATE TABLE IF NOT EXISTS bill_category (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            type INTEGER NOT NULL,
+            icon TEXT,
+            color TEXT,
+            sort_order INTEGER DEFAULT 0,
+            create_time TEXT NOT NULL,
+            update_time TEXT,
+            is_deleted INTEGER DEFAULT 0,
+            sync_status INTEGER DEFAULT 0,
+            last_sync_time TEXT,
+            FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+            UNIQUE(user_id, name)
+        );
+    )";
+    if (!executeSql(createBillCategoryTable)) return false;
+
+    // 创建账单表 (服务端同步用)
+    QString createBillTable = R"(
+        CREATE TABLE IF NOT EXISTS bill (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            book_id INTEGER NOT NULL,
+            category_id INTEGER NOT NULL,
+            bill_date TEXT NOT NULL,
+            amount REAL NOT NULL,
+            type INTEGER NOT NULL,
+            description TEXT,
+            payment_method TEXT,
+            merchant TEXT,
+            tag TEXT,
+            voucher_path TEXT,
+            voucher_url TEXT,
+            is_deleted INTEGER DEFAULT 0,
+            delete_time TEXT,
+            create_time TEXT NOT NULL,
+            update_time TEXT,
+            sync_status INTEGER DEFAULT 0,
+            local_id INTEGER DEFAULT 0,
+            last_sync_time TEXT,
+            sync_error_msg TEXT,
+            FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+            FOREIGN KEY (book_id) REFERENCES account_book(id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES bill_category(id) ON DELETE RESTRICT
+        );
+    )";
+    if (!executeSql(createBillTable)) return false;
 
     // 创建索引提升查询性能
     createIndexes();
@@ -92,7 +176,46 @@ bool SqliteHelper::openDatabase(const QString& dbPath) {
     // 初始化数据库版本（用于后续 schema 升级）
     initializeVersion();
 
+    // 插入默认数据（确保外键约束有基本保障）
+    insertDefaultData();
+
     qDebug() << "数据库初始化成功：" << dbPath;
+    return true;
+}
+
+bool SqliteHelper::insertDefaultData() {
+    // 1. 确保至少有一个默认用户 (id=1)
+    QString checkUser = "SELECT COUNT(*) FROM user WHERE id = 1";
+    QSqlQuery query = executeQuery(checkUser);
+    if (query.next() && query.value(0).toInt() == 0) {
+        QString insertUser = R"(
+            INSERT INTO user (id, account, password, nickname, create_time) 
+            VALUES (1, 'admin', '123456', '管理员', datetime('now'))
+        )";
+        executeSql(insertUser);
+    }
+
+    // 2. 确保至少有一个默认账本 (id=1)
+    QString checkBook = "SELECT COUNT(*) FROM account_book WHERE id = 1";
+    query = executeQuery(checkBook);
+    if (query.next() && query.value(0).toInt() == 0) {
+        QString insertBook = R"(
+            INSERT INTO account_book (id, user_id, name, create_time) 
+            VALUES (1, 1, '默认账本', datetime('now'))
+        )";
+        executeSql(insertBook);
+    }
+
+    // 3. 确保至少有一个默认分类 (id=1)
+    QString checkCategory = "SELECT COUNT(*) FROM bill_category WHERE id = 1";
+    query = executeQuery(checkCategory);
+    if (query.next() && query.value(0).toInt() == 0) {
+        QString insertCategory = R"(
+            INSERT INTO bill_category (id, user_id, name, type, create_time) 
+            VALUES (1, 1, '其他', 0, datetime('now'))
+        )";
+        executeSql(insertCategory);
+    }
     return true;
 }
 

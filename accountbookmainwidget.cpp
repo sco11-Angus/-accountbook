@@ -82,11 +82,11 @@ AccountBookMainWidget::AccountBookMainWidget(QWidget *parent)
         auto *recordWidget = new AccountBookRecordWidget(nullptr);
         recordWidget->setAttribute(Qt::WA_DeleteOnClose); // 关闭自动释放
         
-        // 记账完成后立即刷新列表（不需要等窗口销毁）
-        connect(recordWidget, &AccountBookRecordWidget::billRecorded, this, &AccountBookMainWidget::loadBillsForMonth);
-        
-        // 窗口销毁时也刷新一次作为兜底
-        connect(recordWidget, &QWidget::destroyed, this, &AccountBookMainWidget::loadBillsForMonth);
+        // 记账完成后立即刷新列表
+        connect(recordWidget, &AccountBookRecordWidget::billRecorded, this, [this](){
+            qDebug() << "主界面接收到 billRecorded 信号，正在刷新列表...";
+            this->loadBillsForMonth();
+        });
         
         recordWidget->show();
         recordWidget->activateWindow();
@@ -101,17 +101,40 @@ void AccountBookMainWidget::initUI()
     mainLayout->setSpacing(10);
     mainLayout->setContentsMargins(20, 20, 20, 20);
 
-    // 顶部：账本切换 + 搜索框
+    // 顶部：用户头像按钮 + 搜索框
     QHBoxLayout *topBarLayout = new QHBoxLayout();
-    m_bookSwitchCombo = new QComboBox();
-    m_bookSwitchCombo->addItems({"默认账本", "生活账本", "工作账本"});
-    topBarLayout->addWidget(m_bookSwitchCombo);
+    m_userBtn = new QPushButton();
+    m_userBtn->setFixedSize(35, 35);
+    m_userBtn->setCursor(Qt::PointingHandCursor);
+    m_userBtn->setObjectName("m_userBtn");
+    
+    // 绘制一个白底白边蓝图标的用户头像样式
+    m_userBtn->setStyleSheet(R"(
+        QPushButton#m_userBtn {
+            background-color: white;
+            border-radius: 17px;
+            color: #007AFF;
+            font-size: 22px;
+            font-weight: bold;
+            border: 2px solid white;
+        }
+        QPushButton#m_userBtn:hover {
+            background-color: #F8F9FA;
+            color: #0063CC;
+        }
+    )");
+    m_userBtn->setText("👤"); 
+    topBarLayout->addWidget(m_userBtn);
 
     m_searchEdit = new QLineEdit();
-    m_searchEdit->setPlaceholderText("输入关键词");
+    m_searchEdit->setPlaceholderText("搜索分类、备注...");
     m_searchEdit->setFixedHeight(35);
     topBarLayout->addWidget(m_searchEdit);
     mainLayout->addLayout(topBarLayout);
+
+    // 连接搜索框信号
+    connect(m_searchEdit, &QLineEdit::textChanged, this, &AccountBookMainWidget::onSearchTextChanged);
+    connect(m_userBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onUserBtnClicked);
 
     // 月份切换栏
     QHBoxLayout *monthBarLayout = new QHBoxLayout();
@@ -444,6 +467,52 @@ bool AccountBookMainWidget::eventFilter(QObject *watched, QEvent *event)
         return true;
     }
     return QWidget::eventFilter(watched, event);
+}
+
+void AccountBookMainWidget::onSearchTextChanged(const QString &text)
+{
+    int userId = UserManager::getInstance()->getCurrentUser().getId();
+    if (userId <= 0) return;
+
+    // 获取当月所有账单
+    QList<AccountRecord> records = BillService::getMonthlyBills(userId, m_currentDate);
+    QList<QMap<QString, QString>> filteredList;
+
+    QString keyword = text.trimmed().toLower();
+
+    for (const AccountRecord& record : records) {
+        // 搜索分类名或备注
+        QString category = record.getType().toLower();
+        QString remark = record.getRemark().toLower();
+
+        if (keyword.isEmpty() || category.contains(keyword) || remark.contains(keyword)) {
+            QMap<QString, QString> bill;
+            QDateTime dt = QDateTime::fromString(record.getCreateTime(), "yyyy-MM-dd HH:mm:ss");
+            
+            bill["date"] = dt.toString("MM/dd ") + dt.date().toString("ddd");
+            bill["time"] = dt.toString("HH:mm");
+            bill["cateName"] = record.getType();
+            bill["cateIcon"] = bill["cateName"].left(1); 
+            
+            double amount = record.getAmount();
+            bool isExpense = (amount < 0);
+            
+            bill["amount"] = QString::number(qAbs(amount), 'f', 2);
+            bill["isExpense"] = isExpense ? "true" : "false";
+            
+            filteredList.append(bill);
+        }
+    }
+
+    // 更新列表显示
+    updateBillData(filteredList);
+}
+
+void AccountBookMainWidget::onUserBtnClicked()
+{
+    SettingsWidget *settings = new SettingsWidget();
+    settings->setAttribute(Qt::WA_DeleteOnClose);
+    settings->show();
 }
 
 void AccountBookMainWidget::initStyleSheet()

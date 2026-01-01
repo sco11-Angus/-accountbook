@@ -138,6 +138,31 @@ bool TcpClient::syncBills(const QList<AccountRecord>& bills)
     return sendJsonMessage(message);
 }
 
+bool TcpClient::addRecord(int userId, const AccountRecord& record)
+{
+    if (!isConnected()) {
+        qDebug() << "未连接到服务端，无法添加记录";
+        emit errorOccurred("未连接到服务端");
+        return false;
+    }
+
+    QJsonObject message;
+    message["type"] = "add_record";
+    message["userId"] = userId;
+
+    QJsonObject recordObj;
+    recordObj["amount"] = record.getAmount();
+    recordObj["type"] = (record.getAmount() >= 0 ? 1 : 0);
+    recordObj["billDate"] = record.getCreateTime();
+    recordObj["category"] = record.getType();
+    recordObj["description"] = record.getRemark();
+
+    message["record"] = recordObj;
+
+    qDebug() << "发送添加单条记录请求，用户ID:" << userId << "类别:" << record.getType();
+    return sendJsonMessage(message);
+}
+
 bool TcpClient::fetchLatestData(int userId, const QString& lastSyncTime)
 {
     if (!isConnected()) {
@@ -279,6 +304,13 @@ void TcpClient::parseMessage(const QByteArray& data)
             }
         }
         emit syncBillsResponse(success, msg);
+    }
+    else if (type == "add_record_response") {
+        // 处理单条记录添加响应
+        bool success = message["success"].toBool();
+        QString msg = message["message"].toString();
+        qDebug() << "单条记录添加响应:" << (success ? "成功" : "失败") << msg;
+        emit syncBillsResponse(success, msg); // 复用同步信号，简化业务层逻辑
     }
     else if (type == "fetch_latest_response") {
         // 处理获取最新数据响应

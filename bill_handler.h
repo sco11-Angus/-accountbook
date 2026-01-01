@@ -8,7 +8,7 @@
 #include "account_record.h"
 #include "account_manager.h"
 
-class MySqlHelper;
+class SqliteHelper;
 
 class bill_handler
 {
@@ -19,6 +19,9 @@ public:
     // 处理同步账单请求
     QJsonObject handleSyncBills(const QJsonObject& request);
     
+    // 处理单条记账记录请求
+    QJsonObject handleAddRecord(const QJsonObject& request);
+    
     // 处理查询账单请求
     QJsonObject handleQueryBills(const QJsonObject& request);
     
@@ -26,11 +29,14 @@ public:
     QJsonObject handleBackupData(const QJsonObject& request);
 
 private:
-    MySqlHelper* m_dbHelper;
+    SqliteHelper* m_dbHelper;
     AccountManager* m_accountManager;
     
     // 直接操作 MySQL bill 表
     bool insertBillToDatabase(const AccountRecord& record, int defaultBookId = 1);
+
+    // 确保用户和账本存在（处理外键约束）
+    void ensureUserAndBookExist(int userId, int bookId);
     int queryCategoryId(const QString& categoryName, int userId);
     
     // 将 AccountRecord 转换为 JSON 对象

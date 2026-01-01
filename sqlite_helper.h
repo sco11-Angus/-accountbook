@@ -95,6 +95,8 @@ private:
     bool createIndexes();
     // 创建版本表
     bool createVersionTable();
+    // 插入默认数据
+    bool insertDefaultData();
 };
 
 #endif // SQLITE_HELPER_H

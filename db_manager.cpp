@@ -1,6 +1,5 @@
 #include "db_manager.h"
 #include "sqlite_helper.h"
-#include "mysql_helper.h"
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QDateTime>
@@ -15,9 +14,7 @@ QMutex DBManager::m_mutex;
 DBManager::DBManager() {}
 
 DBManager::~DBManager() {
-    if (m_remoteDb) {
-        m_remoteDb->disconnect();
-    }
+    // SqliteHelper 是单例，不需要手动删除
 }
 
 DBManager* DBManager::getInstance() {
@@ -35,41 +32,36 @@ bool DBManager::initialize(const QString& localDbPath) {
     m_localDb = SqliteHelper::getInstance();
     bool localOk = m_localDb->openDatabase(localDbPath);
     if (!localOk) {
-        qWarning() << "本地数据库初始化失败（可能在服务器环境）: " << m_localDb->getLastError();
-        // 不直接返回 false，因为后续可能只使用远程数据库
+        qWarning() << "本地数据库初始化失败: " << m_localDb->getLastError();
     }
 
-    m_remoteDb = MySqlHelper::getInstance();
+    // 在 SQLite 模式下，远程数据库也暂时指向同一个实例，或者如果需要分离可以另外处理
+    m_remoteDb = SqliteHelper::getInstance();
     m_isInitialized = true;
-    qDebug() << "DBManager初始化标记已设置";
-    return true; // 总是返回 true，允许后续连接远程数据库
+    qDebug() << "DBManager初始化完成 (SQLite模式)";
+    return true;
 }
 
 bool DBManager::connectRemoteDatabase(const QString& host, int port,
                                       const QString& username, const QString& password,
                                       const QString& database) {
+    Q_UNUSED(host); Q_UNUSED(port); Q_UNUSED(username); Q_UNUSED(password); Q_UNUSED(database);
+    
     if (!m_isInitialized) {
         setError("DBManager未初始化");
         return false;
     }
 
-    if (!m_remoteDb->connect(host, port, username, password, database)) {
-        setError("远程数据库连接失败: " + m_remoteDb->getLastError());
-        return false;
-    }
-
-    qDebug() << "远程数据库连接成功";
+    qDebug() << "远程连接切换为SQLite模式，自动视为连接成功";
     return true;
 }
 
 void DBManager::disconnectRemoteDatabase() {
-    if (m_remoteDb) {
-        m_remoteDb->disconnect();
-    }
+    // SQLite模式下无需显式断开远程连接
 }
 
 bool DBManager::isRemoteConnected() const {
-    return m_remoteDb && m_remoteDb->isConnected();
+    return m_isInitialized && m_remoteDb != nullptr;
 }
 
 // ============ 账单管理实现 ============

@@ -32,6 +32,8 @@ bool BillService::saveBill(const AccountRecord& record) {
         return false;
     }
 
+    qDebug() << "本地账单保存成功，准备同步到服务端";
+    
     // 构造带本地ID的账单对象
     AccountRecord newRecord = record;
     newRecord.setId(localId);
@@ -41,23 +43,18 @@ bool BillService::saveBill(const AccountRecord& record) {
     
     // 1. 先连接服务端
     if (!tcpClient->isConnected()) {
-        bool connectSuccess = tcpClient->connectToServer("localhost", 12345);
-        if (!connectSuccess) {
-            emit getInstance()->billSaved(true, QString("本地保存成功（ID：%1），但同步失败：未连接到服务端").arg(localId));
-            return true;
-        }
+        tcpClient->connectToServer("localhost", 12345);
     }
 
-    // 2. 同步账单
-    QList<AccountRecord> bills;
-    bills.append(newRecord);
-    bool syncRequestSent = tcpClient->syncBills(bills);
+    // 2. 使用 addRecord 发送单条记录
+    bool syncRequestSent = tcpClient->addRecord(newRecord.getUserId(), newRecord);
 
     // 3. 发射保存结果信号
-    if (syncRequestSent) {
-        emit getInstance()->billSaved(true, QString("账单已保存到本地并开始同步（本地ID：%1）").arg(localId));
-    } else {
-        emit getInstance()->billSaved(true, QString("账单已保存到本地，但同步请求发送失败（本地ID：%1）").arg(localId));
+    // 注意：在这里立即发射信号，让 UI 刷新。同步结果会通过 syncBillsResponse 信号异步返回。
+    emit getInstance()->billSaved(true, "账单保存成功");
+
+    if (!syncRequestSent) {
+        qWarning() << "同步请求发送失败，账单仅保存在本地";
     }
 
     return true;

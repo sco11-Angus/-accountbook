@@ -8,18 +8,17 @@
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QVariantList>
-#include "mysql_helper.h"
 #include "sqlite_helper.h"
 
 bill_handler::bill_handler()
-    : m_dbHelper(MySqlHelper::getInstance())
+    : m_dbHelper(SqliteHelper::getInstance())
 {
     m_accountManager = new AccountManager();
 }
 
 bill_handler::~bill_handler()
 {
-    // MySqlHelper 是单例，不需要手动删除
+    // SqliteHelper 是单例，不需要手动删除
     if (m_accountManager) {
         delete m_accountManager;
         m_accountManager = nullptr;
@@ -64,7 +63,7 @@ QJsonObject bill_handler::handleSyncBills(const QJsonObject& request)
     QList<AccountRecord> recordsToSync;
     QJsonArray billsResponseArray;  // 用于返回 localId 和 serverId 映射
     
-    // 解析账单数据并直接插入到 MySQL bill 表
+    // 解析账单数据并直接插入到 SQLite bill 表
     for (const QJsonValue& value : billsArray) {
         if (!value.isObject()) {
             failCount++;
@@ -79,7 +78,7 @@ QJsonObject bill_handler::handleSyncBills(const QJsonObject& request)
             userId = record.getUserId();
         }
         
-        // 直接插入到 MySQL bill 表
+        // 直接插入到 SQLite bill 表
         if (insertBillToDatabase(record, bookId)) {
             successCount++;
         } else {
@@ -102,6 +101,65 @@ QJsonObject bill_handler::handleSyncBills(const QJsonObject& request)
         response["failCount"] = failCount;
         qWarning() << "【handleSyncBills】同步失败，已回滚事务";
     }
+    return response;
+}
+
+QJsonObject bill_handler::handleAddRecord(const QJsonObject& request)
+{
+    QJsonObject response;
+    response["type"] = "add_record_response";
+
+    // 检查基本参数
+    if (!request.contains("userId") || !request.contains("record")) {
+        response["success"] = false;
+        response["message"] = "请求参数不完整";
+        return response;
+    }
+
+    int userId = request["userId"].toInt();
+    QJsonObject recordObj = request["record"].toObject();
+
+    // 解析记录数据
+    double amount = recordObj["amount"].toDouble();
+    int type = recordObj["type"].toInt(); // 0=支出, 1=收入
+    QString billDate = recordObj["billDate"].toString();
+    QString category = recordObj["category"].toString();
+    QString description = recordObj["description"].toString();
+
+    if (billDate.isEmpty()) {
+        billDate = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    }
+
+    // 确保用户存在（处理外键约束）
+    ensureUserAndBookExist(userId, 1);
+
+    // 执行插入操作
+    QString sql = R"(
+        INSERT INTO account_record (
+            user_id, bill_date, amount, type, category, remark, description, create_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    )";
+
+    QVariantList params;
+    params << userId 
+           << billDate 
+           << amount 
+           << type 
+           << category 
+           << description  // 备注存入 remark
+           << description  // 同时存入 description 保持兼容
+           << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+
+    if (m_dbHelper->executeSqlWithParams(sql, params)) {
+        response["success"] = true;
+        response["message"] = "记录添加成功";
+        qDebug() << "【handleAddRecord】成功为用户" << userId << "添加记录：" << category << amount;
+    } else {
+        response["success"] = false;
+        response["message"] = "记录添加失败：" + m_dbHelper->getLastError();
+        qWarning() << "【handleAddRecord】添加失败：" << m_dbHelper->getLastError();
+    }
+
     return response;
 }
 
@@ -373,13 +431,16 @@ int bill_handler::queryCategoryId(const QString& categoryName, int userId)
         return -1;
     }
     
-    QString sql = QString(R"(
+    QString sql = R"(
         SELECT id FROM bill_category 
-        WHERE user_id = %1 AND name = '%2' AND is_deleted = 0
+        WHERE user_id = ? AND name = ? AND is_deleted = 0
         LIMIT 1
-    )").arg(userId).arg(categoryName);
+    )";
     
-    QSqlQuery query = m_dbHelper->executeQuery(sql);
+    QVariantList params;
+    params << userId << categoryName;
+    
+    QSqlQuery query = m_dbHelper->executeQueryWithParams(sql, params);
     if (query.next()) {
         return query.value(0).toInt();
     }
@@ -405,10 +466,30 @@ bool bill_handler::insertBillToDatabase(const AccountRecord& record, int default
     // 1. 查询分类ID
     int categoryId = queryCategoryId(record.getType(), record.getUserId());
     if (categoryId <= 0) {
-        qWarning() << "【insertBillToDatabase】分类不存在：" << record.getType();
-        // 可以选择使用默认分类或返回失败
-        categoryId = 1;  // 使用默认分类ID为1
+        qDebug() << "【insertBillToDatabase】分类不存在，尝试自动创建：" << record.getType();
+        // 自动创建分类
+        QString insertCatSql = R"(
+            INSERT INTO bill_category (user_id, name, type, create_time) 
+            VALUES (?, ?, ?, ?)
+        )";
+        QVariantList catParams;
+        catParams << record.getUserId() 
+                  << record.getType() 
+                  << (record.getAmount() >= 0 ? 1 : 0) 
+                  << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+        
+        if (m_dbHelper->executeSqlWithParams(insertCatSql, catParams)) {
+            categoryId = queryCategoryId(record.getType(), record.getUserId());
+        }
+        
+        if (categoryId <= 0) {
+            qWarning() << "【insertBillToDatabase】自动创建分类失败，使用默认分类ID=1";
+            categoryId = 1;
+        }
     }
+    
+    // 1.1 确保用户和账本存在（处理外键约束）
+    ensureUserAndBookExist(record.getUserId(), defaultBookId);
     
     // 2. 确定账单类型（0=支出，1=收入）
     // 根据金额正负判断：正数为收入(1)，负数为支出(0)
@@ -448,4 +529,35 @@ bool bill_handler::insertBillToDatabase(const AccountRecord& record, int default
     }
     
     return success;
+}
+
+void bill_handler::ensureUserAndBookExist(int userId, int bookId)
+{
+    // 1. 确保用户存在
+    QString checkUser = QString("SELECT COUNT(*) FROM user WHERE id = %1").arg(userId);
+    QSqlQuery userQuery = m_dbHelper->executeQuery(checkUser);
+    if (userQuery.next() && userQuery.value(0).toInt() == 0) {
+        qDebug() << "【ensureUserAndBookExist】用户不存在，尝试自动补全：" << userId;
+        QString insertUser = R"(
+            INSERT INTO user (id, account, password, nickname, create_time) 
+            VALUES (?, ?, ?, ?, ?)
+        )";
+        QVariantList userParams;
+        userParams << userId << QString("user_%1").arg(userId) << "123456" << "同步用户" << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+        m_dbHelper->executeSqlWithParams(insertUser, userParams);
+    }
+
+    // 2. 确保账本存在
+    QString checkBook = QString("SELECT COUNT(*) FROM account_book WHERE id = %1").arg(bookId);
+    QSqlQuery bookQuery = m_dbHelper->executeQuery(checkBook);
+    if (bookQuery.next() && bookQuery.value(0).toInt() == 0) {
+        qDebug() << "【ensureUserAndBookExist】账本不存在，尝试自动补全：" << bookId;
+        QString insertBook = R"(
+            INSERT INTO account_book (id, user_id, name, create_time) 
+            VALUES (?, ?, ?, ?)
+        )";
+        QVariantList bookParams;
+        bookParams << bookId << userId << "默认账本" << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+        m_dbHelper->executeSqlWithParams(insertBook, bookParams);
+    }
 }

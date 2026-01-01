@@ -15,17 +15,24 @@ AccountManager::AccountManager() {
 int AccountManager::addAccountRecord(const AccountRecord& record) {
     QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
 
-    // 使用参数化查询，防止 SQL 注入，并避免特殊字符导致的问题
+    // 计算类型：金额小于0为支出(0)，大于等于0为收入(1)
+    int type = (record.getAmount() < 0) ? 0 : 1;
+
+    // 使用更新后的通用表结构
     QString sql = QString(R"(
-        INSERT INTO account_record (user_id, amount, type, remark, voucher_path, is_deleted, create_time, modify_time)
-        VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+        INSERT INTO account_record (
+            user_id, bill_date, amount, type, category, remark, 
+            voucher_path, is_deleted, create_time, modify_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
     )");
     
     QVariantList params;
     params << record.getUserId()
+           << (record.getCreateTime().isEmpty() ? now : record.getCreateTime())
            << record.getAmount()
-           << record.getType()
-           << record.getRemark()
+           << type
+           << record.getType()    // 分类名称
+           << record.getRemark()  // 备注
            << record.getVoucherPath()
            << now
            << now;
@@ -123,7 +130,10 @@ QList<AccountRecord> AccountManager::queryAccountRecord(int userId,
     // 构建查询条件
     QString condition = QString("user_id = %1 AND is_deleted = %2").arg(userId).arg(isDeleted ? 1 : 0);
     if (!timeRange.isEmpty()) {
-        condition += QString(" AND create_time BETWEEN '%1' AND '%2'").arg(timeRange.split("-").at(0)).arg(timeRange.split("-").at(1));
+        QStringList range = timeRange.split("|");
+        if (range.size() == 2) {
+            condition += QString(" AND create_time BETWEEN '%1' AND '%2'").arg(range.at(0)).arg(range.at(1));
+        }
     }
     if (!type.isEmpty()) {
         condition += QString(" AND type = '%1'").arg(type);
@@ -141,8 +151,18 @@ QList<AccountRecord> AccountManager::queryAccountRecord(int userId,
         record.setId(query.value("id").toInt());
         record.setUserId(query.value("user_id").toInt());
         record.setAmount(query.value("amount").toDouble());
-        record.setType(query.value("type").toString());
+        // 兼容旧数据：优先取 category，如果为空取 type (旧版存的是分类名)
+        QString category = query.value("category").toString();
+        if (category.isEmpty()) {
+            category = query.value("type").toString();
+        }
+        record.setType(category); 
+        
         record.setRemark(query.value("remark").toString());
+        if (record.getRemark().isEmpty()) {
+            record.setRemark(query.value("description").toString());
+        }
+        
         record.setVoucherPath(query.value("voucher_path").toString());
         record.setIsDeleted(query.value("is_deleted").toInt());
         record.setDeleteTime(query.value("delete_time").toString());
@@ -162,7 +182,7 @@ QList<AccountRecord> AccountManager::queryRecordsByDateRange(int userId,
     QString start = startDate.toString("yyyy-MM-dd 00:00:00");
     QString end = endDate.toString("yyyy-MM-dd 23:59:59");
 
-    return queryAccountRecord(userId, start + "-" + end, "", 0, 0, isDeleted);
+    return queryAccountRecord(userId, start + "|" + end, "", 0, 0, isDeleted);
 }
 
 //按类型查询
@@ -206,8 +226,6 @@ void AccountManager::syncRecordToServer(const AccountRecord& record)
         return;
     }
 
-    // 使用 syncBills 发送单条记录
-    QList<AccountRecord> records;
-    records << record;
-    client->syncBills(records);
+    // 使用 addRecord 发送单条记录，对应服务端的 handleAddRecord
+    client->addRecord(record.getUserId(), record);
 }
