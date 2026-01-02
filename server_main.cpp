@@ -73,6 +73,22 @@ void server_main::onMessageReceived(qintptr socketDescriptor, const QJsonObject&
         // 处理单条记账记录请求
         response = m_billHandler->handleAddRecord(message);
     }
+    else if (type == "edit_record") {
+        // 处理编辑记账记录请求
+        response = m_billHandler->handleEditRecord(message);
+    }
+    else if (type == "delete_record") {
+        // 处理删除记账记录请求
+        response = m_billHandler->handleDeleteRecord(message);
+    }
+    else if (type == "restore_record") {
+        // 处理恢复记账记录请求
+        response = m_billHandler->handleRestoreRecord(message);
+    }
+    else if (type == "permanent_delete_record") {
+        // 处理永久删除记账记录请求
+        response = m_billHandler->handlePermanentDeleteRecord(message);
+    }
     else if (type == "fetch_latest") {
         // 处理查询账单请求（获取最新数据）
         response = m_billHandler->handleQueryBills(message);

@@ -6,6 +6,7 @@
 #include <QTcpSocket>
 #include <QApplication>
 #include "tcpclient.h"
+#include "user_manager.h"
 
 AccountManager::AccountManager() {
     m_dbHelper = SqliteHelper::getInstance();
@@ -73,7 +74,11 @@ bool AccountManager::editAccountRecord(const AccountRecord& record) {
                       .arg(record.getId())
                       .arg(record.getUserId());
 
-    return m_dbHelper->executeSql(sql);
+    bool success = m_dbHelper->executeSql(sql);
+    if (success) {
+        syncEditRecordToServer(record);
+    }
+    return success;
 }
 
 bool AccountManager::batchEditAccountRecord(const QList<AccountRecord>& records) {
@@ -102,7 +107,11 @@ bool AccountManager::deleteAccountRecord(int recordId) {
         WHERE id = %2
     )").arg(deleteTime).arg(recordId);
 
-    return m_dbHelper->executeSql(sql);
+    bool success = m_dbHelper->executeSql(sql);
+    if (success) {
+        syncDeleteRecordToServer(recordId);
+    }
+    return success;
 }
 
 bool AccountManager::restoreAccountRecord(int recordId) {
@@ -111,12 +120,20 @@ bool AccountManager::restoreAccountRecord(int recordId) {
         WHERE id = %1
     )").arg(recordId);
 
-    return m_dbHelper->executeSql(sql);
+    bool success = m_dbHelper->executeSql(sql);
+    if (success) {
+        syncRestoreRecordToServer(recordId);
+    }
+    return success;
 }
 
 bool AccountManager::permanentDeleteAccountRecord(int recordId) {
     QString sql = QString("DELETE FROM account_record WHERE id = %1").arg(recordId);
-    return m_dbHelper->executeSql(sql);
+    bool success = m_dbHelper->executeSql(sql);
+    if (success) {
+        syncPermanentDeleteRecordToServer(recordId);
+    }
+    return success;
 }
 
 QList<AccountRecord> AccountManager::queryAccountRecord(int userId,
@@ -211,21 +228,59 @@ int AccountManager::getRecordCount(int userId, bool isDeleted) {
     }
     return 0;
 }
+
+QStringList AccountManager::getPresetTypes() {
+    return {"餐饮", "购物", "交通", "居住", "娱乐", "医疗", "教育", "人情", "其他"};
+}
+
+QList<AccountRecord> AccountManager::queryRecordsByAmountRange(int userId,
+                                                               double minAmount,
+                                                               double maxAmount,
+                                                               bool isDeleted) {
+    return queryAccountRecord(userId, "", "", minAmount, maxAmount, isDeleted);
+}
+
 void AccountManager::syncRecordToServer(const AccountRecord& record)
 {
     // 获取全局 TCP 客户端
-    QObject* mainApp = qApp->property("tcpClient").value<QObject*>();
-    if (!mainApp) {
-        qDebug() << "未找到 TCP 客户端，账单仅保存到本地";
-        return;
-    }
-
-    TcpClient* client = qobject_cast<TcpClient*>(mainApp);
+    TcpClient* client = TcpClient::getInstance();
     if (!client || !client->isConnected()) {
         qDebug() << "服务器未连接，账单仅保存到本地";
         return;
     }
 
-    // 使用 addRecord 发送单条记录，对应服务端的 handleAddRecord
+    // 使用 addRecord 发送单条记录
     client->addRecord(record.getUserId(), record);
+}
+
+void AccountManager::syncEditRecordToServer(const AccountRecord& record) {
+    TcpClient* client = TcpClient::getInstance();
+    if (client && client->isConnected()) {
+        client->editRecord(record.getUserId(), record);
+    }
+}
+
+void AccountManager::syncDeleteRecordToServer(int recordId) {
+    TcpClient* client = TcpClient::getInstance();
+    if (client && client->isConnected()) {
+        // 这里的 userId 需要从 record 中获取，或者从 UserManager 获取当前用户
+        int userId = UserManager::getInstance()->getCurrentUser().getId();
+        client->deleteRecord(userId, recordId);
+    }
+}
+
+void AccountManager::syncRestoreRecordToServer(int recordId) {
+    TcpClient* client = TcpClient::getInstance();
+    if (client && client->isConnected()) {
+        int userId = UserManager::getInstance()->getCurrentUser().getId();
+        client->restoreRecord(userId, recordId);
+    }
+}
+
+void AccountManager::syncPermanentDeleteRecordToServer(int recordId) {
+    TcpClient* client = TcpClient::getInstance();
+    if (client && client->isConnected()) {
+        int userId = UserManager::getInstance()->getCurrentUser().getId();
+        client->permanentDeleteRecord(userId, recordId);
+    }
 }

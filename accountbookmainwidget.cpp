@@ -5,6 +5,7 @@
 #include "sqlite_helper.h"
 #include "account_manager.h"
 #include "user_manager.h"
+#include "sync_manager.h"
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>
@@ -92,12 +93,28 @@ AccountBookMainWidget::AccountBookMainWidget(QWidget *parent)
         recordWidget->activateWindow();
         recordWidget->raise();
     });
+
+    // 开启自动同步功能
+    SyncManager::getInstance()->startAutoSync();
+    
+    // 连接同步更新信号，同步完成后自动刷新界面
+    connect(SyncManager::getInstance(), &SyncManager::dataUpdated, this, [this](){
+        loadBillsForMonth();
+    });
 }
 
 void AccountBookMainWidget::initUI()
 {
     // 主布局
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    QVBoxLayout *outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->setSpacing(0);
+
+    m_stackedWidget = new QStackedWidget();
+    
+    // --- 账本页面 ---
+    m_bookPage = new QWidget();
+    QVBoxLayout *mainLayout = new QVBoxLayout(m_bookPage);
     mainLayout->setSpacing(10);
     mainLayout->setContentsMargins(20, 20, 20, 20);
 
@@ -172,11 +189,13 @@ void AccountBookMainWidget::initUI()
     // 连接月份切换信号
     connect(m_prevMonthBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onPrevMonth);
     connect(m_nextMonthBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onNextMonth);
+
     // 收支统计卡片（轻玻璃质感）
     m_statCard = new QFrame();
     m_statCard->setObjectName("m_statCard");
     QVBoxLayout *statLayout = new QVBoxLayout(m_statCard);
     statLayout->setContentsMargins(20, 20, 20, 20);
+    statLayout->setSpacing(10);
 
     m_totalExpenseLabel = new QLabel("总支出 ¥0.00"); // 初始0
     QFont expenseFont;
@@ -211,25 +230,59 @@ void AccountBookMainWidget::initUI()
     m_billListWidget->setItemWidget(emptyItem, emptyWidget);
     mainLayout->addWidget(m_billListWidget);
 
+    m_stackedWidget->addWidget(m_bookPage);
+    
+        // --- 资产页面 (占位) ---
+        m_assetPage = new QWidget();
+        QVBoxLayout *assetLayout = new QVBoxLayout(m_assetPage);
+        QLabel *assetLabel = new QLabel("资产功能开发中...");
+        assetLabel->setAlignment(Qt::AlignCenter);
+        assetLabel->setStyleSheet("color: #999; font-size: 18px;");
+        assetLayout->addWidget(assetLabel);
+        m_stackedWidget->addWidget(m_assetPage);
+    
+        // --- 统计页面 ---
+        m_statisticsPage = new StatisticsWidget();
+        m_stackedWidget->addWidget(m_statisticsPage);
+
+    outerLayout->addWidget(m_stackedWidget);
+
     // 底部导航
-    QHBoxLayout *navLayout = new QHBoxLayout();
+    QFrame *navBar = new QFrame();
+    navBar->setFixedHeight(60);
+    navBar->setStyleSheet("background-color: white; border-top: 1px solid rgba(0,0,0,0.1);");
+    QHBoxLayout *navLayout = new QHBoxLayout(navBar);
+    
     m_bookNavBtn = new QPushButton("账本");
     m_assetNavBtn = new QPushButton("资产");
     m_statNavBtn = new QPushButton("统计");
+    
+    m_bookNavBtn->setCheckable(true);
+    m_assetNavBtn->setCheckable(true);
+    m_statNavBtn->setCheckable(true);
+    m_bookNavBtn->setChecked(true);
+    
+    m_bookNavBtn->setObjectName("navBtn");
+    m_assetNavBtn->setObjectName("navBtn");
+    m_statNavBtn->setObjectName("navBtn");
+
     navLayout->addWidget(m_bookNavBtn);
     navLayout->addWidget(m_assetNavBtn);
     navLayout->addWidget(m_statNavBtn);
-    mainLayout->addLayout(navLayout);
+    outerLayout->addWidget(navBar);
+
+    connect(m_bookNavBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onNavButtonClicked);
+    connect(m_assetNavBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onNavButtonClicked);
+    connect(m_statNavBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onNavButtonClicked);
 
     // 右下角加号按钮
     m_addBtn = new QPushButton("+");
-    // 按钮整体缩小为原来的约 2/3，但保持加号字体大小不变
     m_addBtn->setFixedSize(40, 40);
     QFont addFont;
     addFont.setPointSize(24);
     m_addBtn->setFont(addFont);
     m_addBtn->setParent(this);
-    m_addBtn->move(width() - 80, height() - 100);
+    m_addBtn->move(width() - 80, height() - 110);
     m_addBtn->setObjectName("m_addBtn");
 }
 
@@ -508,6 +561,31 @@ void AccountBookMainWidget::onSearchTextChanged(const QString &text)
     updateBillData(filteredList);
 }
 
+void AccountBookMainWidget::onNavButtonClicked()
+{
+    QPushButton *btn = qobject_cast<QPushButton*>(sender());
+    if (!btn) return;
+
+    // 更新按钮选中状态
+    m_bookNavBtn->setChecked(btn == m_bookNavBtn);
+    m_assetNavBtn->setChecked(btn == m_assetNavBtn);
+    m_statNavBtn->setChecked(btn == m_statNavBtn);
+
+    if (btn == m_bookNavBtn) {
+        m_stackedWidget->setCurrentWidget(m_bookPage);
+        m_addBtn->show();
+    } else if (btn == m_assetNavBtn) {
+        m_stackedWidget->setCurrentWidget(m_assetPage);
+        m_addBtn->hide();
+    } else if (btn == m_statNavBtn) {
+        m_stackedWidget->setCurrentWidget(m_statisticsPage);
+        m_addBtn->hide();
+        // 从 UserManager 获取当前用户 ID
+        int userId = UserManager::getInstance()->getCurrentUser().getId();
+        m_statisticsPage->updateData(userId, m_currentDate.year(), m_currentDate.month());
+    }
+}
+
 void AccountBookMainWidget::onUserBtnClicked()
 {
     SettingsWidget *settings = new SettingsWidget();
@@ -579,8 +657,13 @@ void AccountBookMainWidget::initStyleSheet()
             background-color: white;
             border-radius: 12px;
         }
-        QPushButton#m_bookNavBtn:checked {
-            color: #FFB6C1;
+        QPushButton#navBtn {
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        QPushButton#navBtn:checked {
+            color: #FFD700;
             font-weight: bold;
         }
         QPushButton#m_addBtn {

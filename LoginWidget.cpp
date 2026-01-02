@@ -1,5 +1,6 @@
 #include "LoginWidget.h"
 #include "RegisterWidget.h"
+#include "ForgetPwdWidget.h"
 #include <QMessageBox>
 #include <QCursor>
 #include <QGradient>
@@ -20,7 +21,7 @@ LoginWidget::LoginWidget(QWidget *parent)
 }
 
 LoginWidget::~LoginWidget() {
-    delete m_userManager;
+    // UserManager 是单例，不应在此处 delete
 }
 
 void LoginWidget::initUI() {
@@ -256,5 +257,18 @@ void LoginWidget::onRegisterBtnClicked() {
 }
 
 void LoginWidget::onForgotPwdBtnClicked() {
-    QMessageBox::information(this, "提示", "忘记密码功能待开发！");
+    ForgetPwdWidget* forgetWidget = new ForgetPwdWidget(nullptr);
+    forgetWidget->setWindowModality(Qt::ApplicationModal);
+    forgetWidget->setAttribute(Qt::WA_DeleteOnClose);
+
+    QRect screenRect = QApplication::primaryScreen()->geometry();
+    int x = (screenRect.width() - forgetWidget->width()) / 2;
+    int y = (screenRect.height() - forgetWidget->height()) / 2;
+    forgetWidget->move(x, y);
+
+    connect(forgetWidget, &ForgetPwdWidget::backToLogin, this, [=]() {
+        this->activateWindow();
+    });
+
+    forgetWidget->show();
 }

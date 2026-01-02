@@ -12,7 +12,9 @@
 #include <QHBoxLayout>
 #include <QDate>
 #include <QScrollArea>
+#include <QStackedWidget>
 #include "settings_widget.h"
+#include "statistics_widget.h"
 
 class AccountBookMainWidget : public QWidget
 {
@@ -28,6 +30,7 @@ private slots:
     void onMonthLabelClicked();
     void onSearchTextChanged(const QString &text);
     void onUserBtnClicked();
+    void onNavButtonClicked();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -46,6 +49,12 @@ private:
     void updateStatistic(double totalExpense, double totalIncome);
 
     QDate m_currentDate; // 当前显示的月份
+
+    // 界面堆栈
+    QStackedWidget *m_stackedWidget;
+    QWidget *m_bookPage;
+    QWidget *m_assetPage;
+    StatisticsWidget *m_statisticsPage;
 
     // 顶部控件
     QPushButton *m_userBtn;       // 用户按钮

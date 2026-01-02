@@ -1,7 +1,7 @@
 #ifndef USER_MANAGER_H
 #define USER_MANAGER_H
 
-#include "user.h"
+#include "User.h"
 #include "sqlite_helper.h"
 #include <QString>
 #include <QDateTime>

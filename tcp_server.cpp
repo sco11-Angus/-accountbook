@@ -11,7 +11,7 @@ tcp_server::tcp_server(QObject *parent)
     , m_port(8888)
 {
     m_server = new QTcpServer(this);
-    m_threadManager = new thread_manager();
+    m_threadManager = ThreadManager::getInstance();
     
     // 连接信号槽
     connect(m_server, &QTcpServer::newConnection, this, &tcp_server::onNewConnection);

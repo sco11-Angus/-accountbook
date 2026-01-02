@@ -1,5 +1,4 @@
-QT       += core gui sql widgets network
-QT += core gui network sql
+QT       += core gui sql widgets network concurrent
 CONFIG += c++17
 
 
@@ -20,6 +19,7 @@ SOURCES += \
     server_main.cpp \
     sqlite_helper.cpp \
     statistics_manager.cpp \
+    statistics_widget.cpp \
     sync_manager.cpp \
     tcp_server.cpp \
     tcpclient.cpp \
@@ -31,10 +31,13 @@ SOURCES += \
     user_sync_client.cpp \
     LoginWidget.cpp \
     RegisterWidget.cpp \
+    ForgetPwdWidget.cpp \
     monthpickerdialog.cpp \
     settings_widget.cpp \
     profile_edit_dialog.cpp \
-    bind_dialog.cpp
+    bind_dialog.cpp \
+    ui_handler.cpp \
+    business_logic.cpp
 
 HEADERS += \
     account_add_widget.h \
@@ -53,6 +56,7 @@ HEADERS += \
     server_main.h \
     sqlite_helper.h \
     statistics_manager.h \
+    statistics_widget.h \
     sync_manager.h \
     tcp_server.h \
     tcpclient.h \
@@ -64,11 +68,14 @@ HEADERS += \
     user_sync_client.h \
     LoginWidget.h \
     RegisterWidget.h \
+    ForgetPwdWidget.h \
     monthpickerdialog.h \
     settings_widget.h \
     profile_edit_dialog.h \
     bind_dialog.h \
-    currency_dialog.h
+    currency_dialog.h \
+    ui_handler.h \
+    business_logic.h
 
 FORMS += \
     mainwindow.ui

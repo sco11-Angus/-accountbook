@@ -136,11 +136,12 @@ QJsonObject bill_handler::handleAddRecord(const QJsonObject& request)
     // 执行插入操作
     QString sql = R"(
         INSERT INTO account_record (
-            user_id, bill_date, amount, type, category, remark, description, create_time
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            user_id, bill_date, amount, type, category, remark, description, create_time, modify_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     )";
 
     QVariantList params;
+    QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
     params << userId 
            << billDate 
            << amount 
@@ -148,7 +149,8 @@ QJsonObject bill_handler::handleAddRecord(const QJsonObject& request)
            << category 
            << description  // 备注存入 remark
            << description  // 同时存入 description 保持兼容
-           << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+           << currentTime
+           << currentTime;
 
     if (m_dbHelper->executeSqlWithParams(sql, params)) {
         response["success"] = true;
@@ -158,6 +160,136 @@ QJsonObject bill_handler::handleAddRecord(const QJsonObject& request)
         response["success"] = false;
         response["message"] = "记录添加失败：" + m_dbHelper->getLastError();
         qWarning() << "【handleAddRecord】添加失败：" << m_dbHelper->getLastError();
+    }
+
+    return response;
+}
+
+QJsonObject bill_handler::handleEditRecord(const QJsonObject& request)
+{
+    QJsonObject response;
+    response["type"] = "edit_record_response";
+
+    if (!request.contains("userId") || !request.contains("recordId") || !request.contains("record")) {
+        response["success"] = false;
+        response["message"] = "请求参数不完整";
+        return response;
+    }
+
+    int userId = request["userId"].toInt();
+    int recordId = request["recordId"].toInt();
+    QJsonObject recordObj = request["record"].toObject();
+
+    double amount = recordObj["amount"].toDouble();
+    int type = recordObj["type"].toInt();
+    QString billDate = recordObj["billDate"].toString();
+    QString category = recordObj["category"].toString();
+    QString description = recordObj["description"].toString();
+
+    QString sql = R"(
+        UPDATE account_record 
+        SET amount = ?, type = ?, bill_date = ?, category = ?, remark = ?, description = ?, modify_time = ?
+        WHERE id = ? AND user_id = ?
+    )";
+
+    QVariantList params;
+    params << amount << type << billDate << category << description << description 
+           << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
+           << recordId << userId;
+
+    if (m_dbHelper->executeSqlWithParams(sql, params)) {
+        response["success"] = true;
+        response["message"] = "记录更新成功";
+    } else {
+        response["success"] = false;
+        response["message"] = "记录更新失败：" + m_dbHelper->getLastError();
+    }
+
+    return response;
+}
+
+QJsonObject bill_handler::handleDeleteRecord(const QJsonObject& request)
+{
+    QJsonObject response;
+    response["type"] = "delete_record_response";
+
+    if (!request.contains("userId") || !request.contains("recordId")) {
+        response["success"] = false;
+        response["message"] = "请求参数不完整";
+        return response;
+    }
+
+    int userId = request["userId"].toInt();
+    int recordId = request["recordId"].toInt();
+
+    QString sql = "UPDATE account_record SET is_deleted = 1, delete_time = ? WHERE id = ? AND user_id = ?";
+    QVariantList params;
+    params << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss") << recordId << userId;
+
+    if (m_dbHelper->executeSqlWithParams(sql, params)) {
+        response["success"] = true;
+        response["message"] = "记录删除成功";
+    } else {
+        response["success"] = false;
+        response["message"] = "记录删除失败：" + m_dbHelper->getLastError();
+    }
+
+    return response;
+}
+
+QJsonObject bill_handler::handleRestoreRecord(const QJsonObject& request)
+{
+    QJsonObject response;
+    response["type"] = "restore_record_response";
+
+    if (!request.contains("userId") || !request.contains("recordId")) {
+        response["success"] = false;
+        response["message"] = "请求参数不完整";
+        return response;
+    }
+
+    int userId = request["userId"].toInt();
+    int recordId = request["recordId"].toInt();
+
+    QString sql = "UPDATE account_record SET is_deleted = 0, delete_time = NULL WHERE id = ? AND user_id = ?";
+    QVariantList params;
+    params << recordId << userId;
+
+    if (m_dbHelper->executeSqlWithParams(sql, params)) {
+        response["success"] = true;
+        response["message"] = "记录恢复成功";
+    } else {
+        response["success"] = false;
+        response["message"] = "记录恢复失败：" + m_dbHelper->getLastError();
+    }
+
+    return response;
+}
+
+QJsonObject bill_handler::handlePermanentDeleteRecord(const QJsonObject& request)
+{
+    QJsonObject response;
+    response["type"] = "permanent_delete_record_response";
+
+    if (!request.contains("userId") || !request.contains("recordId")) {
+        response["success"] = false;
+        response["message"] = "请求参数不完整";
+        return response;
+    }
+
+    int userId = request["userId"].toInt();
+    int recordId = request["recordId"].toInt();
+
+    QString sql = "DELETE FROM account_record WHERE id = ? AND user_id = ?";
+    QVariantList params;
+    params << recordId << userId;
+
+    if (m_dbHelper->executeSqlWithParams(sql, params)) {
+        response["success"] = true;
+        response["message"] = "记录永久删除成功";
+    } else {
+        response["success"] = false;
+        response["message"] = "记录永久删除失败：" + m_dbHelper->getLastError();
     }
 
     return response;
@@ -187,6 +319,8 @@ QJsonObject bill_handler::handleQueryBills(const QJsonObject& request)
     QString type = request.contains("type") ? request["type"].toString() : "";
     double minAmount = request.contains("minAmount") ? request["minAmount"].toDouble() : 0;
     double maxAmount = request.contains("maxAmount") ? request["maxAmount"].toDouble() : 0;
+    Q_UNUSED(minAmount);
+    Q_UNUSED(maxAmount);
     bool isDeleted = request.contains("isDeleted") ? request["isDeleted"].toBool() : false;
     
     // 如果提供了最后同步时间，只查询该时间之后的数据

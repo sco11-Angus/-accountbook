@@ -6,7 +6,7 @@
 #include "account_manager.h"
 #include "user_manager.h"
 #include "account_record.h"
-#include "user.h"
+#include "User.h"
 
 class UIHandler : public QObject
 {

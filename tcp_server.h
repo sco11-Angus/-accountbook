@@ -10,7 +10,7 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 
-class thread_manager;
+class ThreadManager;
 
 class tcp_server : public QObject
 {
@@ -56,7 +56,7 @@ private slots:
 private:
     QTcpServer* m_server;
     QList<QTcpSocket*> m_clients;
-    thread_manager* m_threadManager;
+    ThreadManager* m_threadManager;
     quint16 m_port;
     QMap<qintptr, QByteArray> m_socketBuffers;  // 存储每个socket的不完整数据
     

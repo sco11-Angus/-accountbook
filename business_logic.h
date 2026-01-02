@@ -5,7 +5,7 @@
 #include <QList>
 #include <QDate>
 #include "account_record.h"
-#include "user.h"
+#include "User.h"
 
 class BusinessLogic : public QObject
 {

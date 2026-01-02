@@ -91,7 +91,8 @@ QWidget* AccountBookRecordWidget::createCateBtn(const QString& text, const QStri
     // 取拼音名，若没找到则默认用"qita（其他）"
     QString pinyinName = cateMap.value(text, "qita");
     // 拼接路径（用拼音名替代原来的中文）
-    // 替换原来的 basePath 行，用绝对路径（注意路径里用 / 或 \\）
+    // 注意：qrc 路径为 :/<prefix>/<file_path_in_qrc>
+    // 在 res.qrc 中，前缀是 /classify1 或 /classify2，文件路径是 resources/classifyX/xxx.jpg
     QString basePath = QString(":/%1/resources/%2/%3").arg(imgDir).arg(imgDir).arg(pinyinName);
     QString normalPath = basePath + ".jpg";
     QString activePath = basePath + "1.jpg";

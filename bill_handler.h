@@ -21,6 +21,18 @@ public:
     
     // 处理单条记账记录请求
     QJsonObject handleAddRecord(const QJsonObject& request);
+
+    // 处理编辑记账记录请求
+    QJsonObject handleEditRecord(const QJsonObject& request);
+
+    // 处理删除记账记录请求（软删除）
+    QJsonObject handleDeleteRecord(const QJsonObject& request);
+
+    // 处理恢复记账记录请求
+    QJsonObject handleRestoreRecord(const QJsonObject& request);
+
+    // 处理永久删除记账记录请求
+    QJsonObject handlePermanentDeleteRecord(const QJsonObject& request);
     
     // 处理查询账单请求
     QJsonObject handleQueryBills(const QJsonObject& request);

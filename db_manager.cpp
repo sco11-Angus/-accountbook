@@ -723,6 +723,7 @@ QList<BillData> DBManager::getUnsyncedBills(int userId) {
 }
 
 bool DBManager::markBillAsSynced(int billId, int remoteBillId) {
+    Q_UNUSED(remoteBillId);
     if (!m_isInitialized) {
         setError("DBManager未初始化");
         return false;
@@ -767,6 +768,7 @@ QList<SyncQueueItem> DBManager::getPendingSyncItems(int userId, int limit) {
 }
 
 bool DBManager::addToSyncQueue(const SyncQueueItem& item) {
+    Q_UNUSED(item);
     if (!m_isInitialized) {
         setError("DBManager未初始化");
         return false;
@@ -779,6 +781,7 @@ bool DBManager::addToSyncQueue(const SyncQueueItem& item) {
 }
 
 bool DBManager::removeSyncQueueItem(int itemId) {
+    Q_UNUSED(itemId);
     if (!m_isInitialized) {
         setError("DBManager未初始化");
         return false;
@@ -788,6 +791,7 @@ bool DBManager::removeSyncQueueItem(int itemId) {
 }
 
 SyncStatistics DBManager::getSyncStatistics(int userId) {
+    Q_UNUSED(userId);
     SyncStatistics stats;
 
     if (!m_isInitialized) {

@@ -2,7 +2,7 @@
 #include <QMessageBox>
 
 ProfileEditDialog::ProfileEditDialog(const User& user, QWidget *parent) 
-    : QDialog(parent), m_user(user), m_avatarPath(user.getAvatar()) 
+    : QDialog(parent), m_avatarPath(user.getAvatar()), m_user(user)
 {
     setWindowTitle("修改个人信息");
     setFixedSize(300, 400);

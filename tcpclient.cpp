@@ -163,6 +163,83 @@ bool TcpClient::addRecord(int userId, const AccountRecord& record)
     return sendJsonMessage(message);
 }
 
+bool TcpClient::editRecord(int userId, const AccountRecord& record)
+{
+    if (!isConnected()) {
+        qDebug() << "未连接到服务端，无法编辑记录";
+        emit errorOccurred("未连接到服务端");
+        return false;
+    }
+
+    QJsonObject message;
+    message["type"] = "edit_record";
+    message["userId"] = userId;
+    message["recordId"] = record.getId();
+
+    QJsonObject recordObj;
+    recordObj["amount"] = record.getAmount();
+    recordObj["type"] = (record.getAmount() >= 0 ? 1 : 0);
+    recordObj["billDate"] = record.getCreateTime();
+    recordObj["category"] = record.getType();
+    recordObj["description"] = record.getRemark();
+
+    message["record"] = recordObj;
+
+    qDebug() << "发送编辑记录请求，用户ID:" << userId << "记录ID:" << record.getId();
+    return sendJsonMessage(message);
+}
+
+bool TcpClient::deleteRecord(int userId, int recordId)
+{
+    if (!isConnected()) {
+        qDebug() << "未连接到服务端，无法删除记录";
+        emit errorOccurred("未连接到服务端");
+        return false;
+    }
+
+    QJsonObject message;
+    message["type"] = "delete_record";
+    message["userId"] = userId;
+    message["recordId"] = recordId;
+
+    qDebug() << "发送删除记录请求，用户ID:" << userId << "记录ID:" << recordId;
+    return sendJsonMessage(message);
+}
+
+bool TcpClient::restoreRecord(int userId, int recordId)
+{
+    if (!isConnected()) {
+        qDebug() << "未连接到服务端，无法恢复记录";
+        emit errorOccurred("未连接到服务端");
+        return false;
+    }
+
+    QJsonObject message;
+    message["type"] = "restore_record";
+    message["userId"] = userId;
+    message["recordId"] = recordId;
+
+    qDebug() << "发送恢复记录请求，用户ID:" << userId << "记录ID:" << recordId;
+    return sendJsonMessage(message);
+}
+
+bool TcpClient::permanentDeleteRecord(int userId, int recordId)
+{
+    if (!isConnected()) {
+        qDebug() << "未连接到服务端，无法永久删除记录";
+        emit errorOccurred("未连接到服务端");
+        return false;
+    }
+
+    QJsonObject message;
+    message["type"] = "permanent_delete_record";
+    message["userId"] = userId;
+    message["recordId"] = recordId;
+
+    qDebug() << "发送永久删除记录请求，用户ID:" << userId << "记录ID:" << recordId;
+    return sendJsonMessage(message);
+}
+
 bool TcpClient::fetchLatestData(int userId, const QString& lastSyncTime)
 {
     if (!isConnected()) {

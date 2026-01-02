@@ -29,6 +29,14 @@ public:
     bool syncBills(const QList<AccountRecord>& bills);
     // 添加单条记录到服务端
     bool addRecord(int userId, const AccountRecord& record);
+    // 编辑记录同步到服务端
+    bool editRecord(int userId, const AccountRecord& record);
+    // 删除记录同步到服务端（软删除）
+    bool deleteRecord(int userId, int recordId);
+    // 恢复记录同步到服务端
+    bool restoreRecord(int userId, int recordId);
+    // 永久删除记录同步到服务端
+    bool permanentDeleteRecord(int userId, int recordId);
     // 获取最新数据
     bool fetchLatestData(int userId, const QString& lastSyncTime = "");
     // 备份数据
