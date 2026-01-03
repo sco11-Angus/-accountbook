@@ -27,15 +27,17 @@ int AccountManager::addAccountRecord(const AccountRecord& record) {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
     )");
     
+    QString recordTime = record.getCreateTime().isEmpty() ? now : record.getCreateTime();
+    
     QVariantList params;
     params << record.getUserId()
-           << (record.getCreateTime().isEmpty() ? now : record.getCreateTime())
+           << recordTime
            << record.getAmount()
            << type
            << record.getType()    // 分类名称
            << record.getRemark()  // 备注
            << record.getVoucherPath()
-           << now
+           << recordTime
            << now;
     
     bool success = m_dbHelper->executeSqlWithParams(sql, params);
@@ -63,18 +65,30 @@ int AccountManager::addAccountRecord(const AccountRecord& record) {
 
 bool AccountManager::editAccountRecord(const AccountRecord& record) {
     QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    
+    // 计算类型：金额小于0为支出(0)，大于等于0为收入(1)
+    int type = (record.getAmount() < 0) ? 0 : 1;
+    
     QString sql = QString(R"(
-        UPDATE account_record SET amount = %1, type = '%2', remark = '%3', voucher_path = '%4', modify_time = '%5'
-        WHERE id = %6 AND user_id = %7
-    )").arg(record.getAmount())
-                      .arg(record.getType())
-                      .arg(record.getRemark())
-                      .arg(record.getVoucherPath())
-                      .arg(now)
-                      .arg(record.getId())
-                      .arg(record.getUserId());
+        UPDATE account_record 
+        SET bill_date = ?, amount = ?, type = ?, category = ?, remark = ?, 
+            voucher_path = ?, create_time = ?, modify_time = ?
+        WHERE id = ? AND user_id = ?
+    )");
+    
+    QVariantList params;
+    params << record.getCreateTime()
+           << record.getAmount()
+           << type
+           << record.getType()    // 分类名称
+           << record.getRemark()  // 备注
+           << record.getVoucherPath()
+           << record.getCreateTime() // 同步更新创建时间，确保显示一致
+           << now
+           << record.getId()
+           << record.getUserId();
 
-    bool success = m_dbHelper->executeSql(sql);
+    bool success = m_dbHelper->executeSqlWithParams(sql, params);
     if (success) {
         syncEditRecordToServer(record);
     }

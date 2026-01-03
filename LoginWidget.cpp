@@ -8,6 +8,7 @@
 #include <QApplication>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QSettings>
 
 LoginWidget::LoginWidget(QWidget *parent)
     : QWidget(parent)
@@ -18,6 +19,7 @@ LoginWidget::LoginWidget(QWidget *parent)
     setFixedSize(450, 600); // 匹配XML尺寸
     initUI();
     initStyleSheet();
+    loadSettings(); // 加载记住的密码
 }
 
 LoginWidget::~LoginWidget() {
@@ -216,7 +218,8 @@ void LoginWidget::onLoginBtnClicked() {
     // 执行登录逻辑
     User user = m_userManager->login(account, password, m_rememberPwdCheck->isChecked());
     if (user.getId() > 0) {
-       m_userManager->setCurrentUser(user);
+        saveSettings(); // 登录成功后保存/清除设置
+        m_userManager->setCurrentUser(user);
         m_tipLabel->setText("");
         emit loginSuccess(user);
         close();
@@ -271,4 +274,31 @@ void LoginWidget::onForgotPwdBtnClicked() {
     });
 
     forgetWidget->show();
+}
+
+void LoginWidget::loadSettings() {
+    QSettings settings("RedFruit", "AccountBook");
+    bool remember = settings.value("login/remember", false).toBool();
+    m_rememberPwdCheck->setChecked(remember);
+    
+    if (remember) {
+        QString account = settings.value("login/account").toString();
+        QString password = settings.value("login/password").toString();
+        m_accountEdit->setText(account);
+        m_pwdEdit->setText(password);
+    }
+}
+
+void LoginWidget::saveSettings() {
+    QSettings settings("RedFruit", "AccountBook");
+    bool remember = m_rememberPwdCheck->isChecked();
+    settings.setValue("login/remember", remember);
+    
+    if (remember) {
+        settings.setValue("login/account", m_accountEdit->text());
+        settings.setValue("login/password", m_pwdEdit->text());
+    } else {
+        settings.remove("login/account");
+        settings.remove("login/password");
+    }
 }

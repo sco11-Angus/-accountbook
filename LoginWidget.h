@@ -30,6 +30,8 @@ private slots:
 private:
     void initUI();          // 初始化界面布局
     void initStyleSheet();  // 初始化样式表
+    void loadSettings();    // 加载记住的密码
+    void saveSettings();    // 保存记住的密码
 
     // 核心业务逻辑
     UserManager* m_userManager;

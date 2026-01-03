@@ -22,11 +22,12 @@
 
 class DateTimePickerDialog;
 
-class AccountBookRecordWidget : public QWidget
+class AccountBookRecordWidget : public QDialog
 {
     Q_OBJECT
 public:
     explicit AccountBookRecordWidget(QWidget *parent = nullptr);
+    void setRecord(const AccountRecord& record); // 添加设置记录的方法，用于编辑模式
 
 signals:
     // 记账完成信号，可携带账单数据（也可只发信号，主界面自己查数据库）
@@ -45,6 +46,8 @@ private slots:
     void onTimeClicked();
 
 private:
+    bool m_isEditMode = false;      // 是否为编辑模式
+    AccountRecord m_currentRecord;  // 当前正在编辑的记录
     // 新增枚举类型定义
     enum class PlusMode { Add, Mul };       // 加/乘模式
     enum class MinusMode { Sub, Div };      // 减/除模式

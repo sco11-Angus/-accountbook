@@ -60,6 +60,59 @@ bool BillService::saveBill(const AccountRecord& record) {
     return true;
 }
 
+bool BillService::updateBill(const AccountRecord& record) {
+    // 更新到本地SQLite
+    AccountManager accountManager;
+    bool success = accountManager.editAccountRecord(record);
+    
+    if (!success) {
+        emit getInstance()->billSaved(false, "本地更新失败：" + SqliteHelper::getInstance()->getLastError());
+        return false;
+    }
+
+    qDebug() << "本地账单更新成功，准备同步到服务端";
+    
+    // 异步同步到服务端
+    TcpClient* tcpClient = TcpClient::getInstance();
+    
+    // 1. 先连接服务端
+    if (!tcpClient->isConnected()) {
+        tcpClient->connectToServer("localhost", 12345);
+    }
+
+    // 2. 使用 editRecord 发送更新请求
+    bool syncRequestSent = tcpClient->editRecord(record.getUserId(), record);
+
+    // 3. 发射保存结果信号
+    emit getInstance()->billSaved(true, "账单更新成功");
+
+    if (!syncRequestSent) {
+        qWarning() << "更新请求发送失败，修改仅保存在本地";
+    }
+
+    return true;
+}
+
+bool BillService::deleteBill(int recordId) {
+    // 删除本地SQLite记录
+    AccountManager accountManager;
+    bool success = accountManager.deleteAccountRecord(recordId);
+    
+    if (!success) {
+        emit getInstance()->billSaved(false, "本地删除失败：" + SqliteHelper::getInstance()->getLastError());
+        return false;
+    }
+
+    qDebug() << "本地账单删除成功，准备同步到服务端";
+    
+    // 异步同步到服务端已经在 accountManager.deleteAccountRecord 中通过 syncDeleteRecordToServer 处理了
+    
+    // 发射保存结果信号（这里复用 billSaved 信号，因为 UI 逻辑一致）
+    emit getInstance()->billSaved(true, "账单删除成功");
+
+    return true;
+}
+
 QList<AccountRecord> BillService::getMonthlyBills(int userId, const QDate& date) {
     AccountManager accountManager;
     // 获取指定月份未删除的账单

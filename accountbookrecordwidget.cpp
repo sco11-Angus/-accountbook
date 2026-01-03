@@ -21,9 +21,89 @@
 
 #include <QIcon>
 
+// 静态辅助函数：解析日期时间字符串，支持多种格式
+static QDateTime parseDateTime(const QString& dateTimeStr) {
+    QDateTime dt = QDateTime::fromString(dateTimeStr, "yyyy-MM-dd HH:mm:ss");
+    if (!dt.isValid()) {
+        dt = QDateTime::fromString(dateTimeStr, "yyyy-MM-dd HH:mm");
+    }
+    if (!dt.isValid()) {
+        dt = QDateTime::fromString(dateTimeStr, Qt::ISODate);
+    }
+    if (!dt.isValid()) {
+        // 如果还是无效，尝试只解析日期
+        QDate date = QDate::fromString(dateTimeStr, "yyyy-MM-dd");
+        if (date.isValid()) {
+            dt = QDateTime(date, QTime(0, 0));
+        }
+    }
+    return dt;
+}
+
+
+void AccountBookRecordWidget::setRecord(const AccountRecord& record)
+{
+    m_isEditMode = true;
+    m_currentRecord = record;
+    if (m_completeBtn) m_completeBtn->setText("修改");
+    
+    m_currentDateTime = parseDateTime(record.getCreateTime());
+    if (!m_currentDateTime.isValid()) {
+        m_currentDateTime = QDateTime::currentDateTime();
+    }
+
+    // 根据金额正负判断是支出还是收入
+    double amount = record.getAmount();
+    bool isExpense = (amount < 0);
+    
+    m_tabWidget->setCurrentIndex(isExpense ? 0 : 1);
+    
+    // 设置金额
+    double absAmount = qAbs(amount);
+    if (absAmount == 0.0) {
+        m_firstOperandText = "0";
+    } else {
+        // 使用 'g' 格式并去掉尾随零，更符合输入习惯
+        m_firstOperandText = QString::number(absAmount);
+    }
+    m_phase = InputPhase::EnteringFirst;
+    updateAmountDisplay();
+
+    // 设置分类
+    QString category = record.getType();
+    if (isExpense) {
+        QStringList expenseCates = {
+            "餐饮", "服饰", "日用", "数码", "美妆",
+            "软件", "住房", "交通", "娱乐", "医疗",
+            "通讯", "汽车", "学习", "办公", "运动",
+            "社交", "宠物", "旅行", "育儿", "其他"
+        };
+        int index = expenseCates.indexOf(category);
+        if (index >= 0 && m_expenseGroup->button(index)) {
+            m_expenseGroup->button(index)->setChecked(true);
+        }
+        m_expenseNoteEdit->setText(record.getRemark());
+    } else {
+        QStringList incomeCates = {
+            "副业", "工资", "红包", "兼职", "投资",
+            "意外收入", "其他"
+        };
+        int index = incomeCates.indexOf(category);
+        if (index >= 0 && m_incomeGroup->button(index)) {
+            m_incomeGroup->button(index)->setChecked(true);
+        }
+        m_incomeNoteEdit->setText(record.getRemark());
+    }
+
+    updateTimeDisplay();
+    
+    if (m_completeBtn) {
+        m_completeBtn->setText("修改");
+    }
+}
 
 AccountBookRecordWidget::AccountBookRecordWidget(QWidget *parent)
-    : QWidget(parent),
+    : QDialog(parent),
     m_plusMode(PlusMode::Add),
     m_minusMode(MinusMode::Sub),
     m_currentOp(Op::None),
@@ -36,6 +116,17 @@ AccountBookRecordWidget::AccountBookRecordWidget(QWidget *parent)
     initUI();
     initStyleSheet();
     updateTimeDisplay();
+
+    // 统一处理保存、更新的结果信号
+    connect(BillService::getInstance(), &BillService::billSaved, this, [=](bool success, const QString& message) {
+        if (success) {
+            emit billRecorded();
+            this->accept(); // 直接关闭并返回，不弹窗，满足用户“点击完成就回到主界面”的要求
+        } else {
+            QMessageBox::critical(this, "错误", message);
+            if (m_completeBtn) m_completeBtn->setEnabled(true);
+        }
+    });
 }
 
 QMap<QString, QString> getCateNameMap() {
@@ -556,53 +647,46 @@ void AccountBookRecordWidget::createKeyboard()
             return;
         }
 
-        // 7. 创建 AccountRecord 对象
+        // 7. 创建/更新 AccountRecord 对象
         AccountRecord record;
-        record.setUserId(userId);
+        if (m_isEditMode) {
+            record = m_currentRecord;
+        } else {
+            record.setUserId(userId);
+            record.setIsDeleted(0);  // 0 表示正常记录
+        }
+        
         record.setAmount(amount);
         record.setType(category);
         record.setRemark(remark);
         record.setCreateTime(m_currentDateTime.toString("yyyy-MM-dd HH:mm:ss"));
-        record.setModifyTime(m_currentDateTime.toString("yyyy-MM-dd HH:mm:ss"));
-        record.setIsDeleted(0);  // 0 表示正常记录
+        record.setModifyTime(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
 
         // 调试信息：打印即将保存的数据
-        qDebug() << "====== 准备保存账单 ======";
+        qDebug() << (m_isEditMode ? "====== 准备更新账单 ======" : "====== 准备保存账单 ======");
+        if (m_isEditMode) qDebug() << "记录ID:" << record.getId();
         qDebug() << "用户ID:" << record.getUserId();
         qDebug() << "金额:" << record.getAmount();
         qDebug() << "分类:" << record.getType();
         qDebug() << "备注:" << record.getRemark();
-        qDebug() << "创建时间:" << record.getCreateTime();
+        qDebug() << "时间:" << record.getCreateTime();
         qDebug() << "================";
 
-        // 8. 调用 BillService 保存到数据库（本地+同步）
+        // 8. 调用 BillService 保存/更新到数据库（本地+同步）
         // 禁用保存按钮，防止重复提交
-        sender()->setProperty("disabled", true);
-        if (QPushButton* btn = qobject_cast<QPushButton*>(sender())) {
+        if (QPushButton* btn = qobject_cast<QPushButton*>(m_completeBtn)) {
             btn->setEnabled(false);
         }
 
-        // 监听保存结果信号
-        // 注意：这里使用 context 对象 'this'，当 widget 销毁时连接会自动断开
-        connect(BillService::getInstance(), &BillService::billSaved, this, [=](bool success, const QString& message) {
-            if (success) {
-                qDebug() << "记账保存成功信号已接收，准备刷新主界面并关闭窗口";
-                emit billRecorded();
-                QMessageBox::information(this, "成功", message);
-                this->close();
-            } else {
-                QMessageBox::critical(this, "错误", message);
-                // 失败了重新启用按钮
-                if (QPushButton* btn = qobject_cast<QPushButton*>(sender())) {
-                    btn->setEnabled(true);
-                }
-            }
-        });
+        bool success = false;
+        if (m_isEditMode) {
+            success = BillService::updateBill(record);
+        } else {
+            success = BillService::saveBill(record);
+        }
 
-        bool success = BillService::saveBill(record);
         if (!success) {
-            // 如果 saveBill 返回 false，说明本地保存就失败了，上面的 lambda 会处理信号
-            // 但为了保险，这里也可以做简单处理
+            // 如果失败，信号已经发射并在上面处理了
             return;
         }
     });
@@ -736,8 +820,6 @@ void AccountBookRecordWidget::initUI()
     // 数字键盘
     createKeyboard();
     mainLayout->addWidget(m_keyboardWidget);
-
-
 }
 
 void AccountBookRecordWidget::initStyleSheet()

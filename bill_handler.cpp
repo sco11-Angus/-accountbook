@@ -133,6 +133,20 @@ QJsonObject bill_handler::handleAddRecord(const QJsonObject& request)
     // 确保用户存在（处理外键约束）
     ensureUserAndBookExist(userId, 1);
 
+    // 在这种客户端服务端共用数据库的演示模式下，先检查是否已存在完全相同的记录
+    // 避免因为本地保存一次、服务端又保存一次导致的重复
+    QString checkSql = "SELECT id FROM account_record WHERE user_id = ? AND bill_date = ? AND amount = ? AND category = ? LIMIT 1";
+    QVariantList checkParams;
+    checkParams << userId << billDate << amount << category;
+    
+    QSqlQuery query = m_dbHelper->executeQueryWithParams(checkSql, checkParams);
+    if (query.next()) {
+        response["success"] = true;
+        response["message"] = "记录已存在（同步忽略）";
+        qDebug() << "【handleAddRecord】记录已存在，跳过重复插入：" << category << amount;
+        return response;
+    }
+
     // 执行插入操作
     QString sql = R"(
         INSERT INTO account_record (
@@ -149,7 +163,7 @@ QJsonObject bill_handler::handleAddRecord(const QJsonObject& request)
            << category 
            << description  // 备注存入 remark
            << description  // 同时存入 description 保持兼容
-           << currentTime
+           << billDate     // 使用账单时间作为创建时间，确保显示一致
            << currentTime;
 
     if (m_dbHelper->executeSqlWithParams(sql, params)) {
@@ -188,12 +202,12 @@ QJsonObject bill_handler::handleEditRecord(const QJsonObject& request)
 
     QString sql = R"(
         UPDATE account_record 
-        SET amount = ?, type = ?, bill_date = ?, category = ?, remark = ?, description = ?, modify_time = ?
+        SET amount = ?, type = ?, bill_date = ?, category = ?, remark = ?, description = ?, create_time = ?, modify_time = ?
         WHERE id = ? AND user_id = ?
     )";
 
     QVariantList params;
-    params << amount << type << billDate << category << description << description 
+    params << amount << type << billDate << category << description << description << billDate
            << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
            << recordId << userId;
 
@@ -625,6 +639,19 @@ bool bill_handler::insertBillToDatabase(const AccountRecord& record, int default
     // 1.1 确保用户和账本存在（处理外键约束）
     ensureUserAndBookExist(record.getUserId(), defaultBookId);
     
+    // 1.2 在这种客户端服务端共用数据库的演示模式下，先检查是否已存在记录
+    // 优先检查 local_id (如果记录是从本地同步上来的)
+    if (record.getId() > 0) {
+        QString checkIdSql = "SELECT id FROM bill WHERE user_id = ? AND local_id = ?";
+        QVariantList checkIdParams;
+        checkIdParams << record.getUserId() << record.getId();
+        QSqlQuery idQuery = m_dbHelper->executeQueryWithParams(checkIdSql, checkIdParams);
+        if (idQuery.next()) {
+            qDebug() << "【insertBillToDatabase】记录已存在(local_id=" << record.getId() << ")，跳过插入";
+            return true;
+        }
+    }
+
     // 2. 确定账单类型（0=支出，1=收入）
     // 根据金额正负判断：正数为收入(1)，负数为支出(0)
     int type = (record.getAmount() >= 0) ? 1 : 0;

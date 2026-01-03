@@ -382,11 +382,13 @@ void TcpClient::parseMessage(const QByteArray& data)
         }
         emit syncBillsResponse(success, msg);
     }
-    else if (type == "add_record_response") {
-        // 处理单条记录添加响应
+    else if (type == "add_record_response" || type == "edit_record_response" || 
+             type == "delete_record_response" || type == "restore_record_response" ||
+             type == "permanent_delete_record_response") {
+        // 处理记录操作响应
         bool success = message["success"].toBool();
         QString msg = message["message"].toString();
-        qDebug() << "单条记录添加响应:" << (success ? "成功" : "失败") << msg;
+        qDebug() << "记录操作响应(" << type << "):" << (success ? "成功" : "失败") << msg;
         emit syncBillsResponse(success, msg); // 复用同步信号，简化业务层逻辑
     }
     else if (type == "fetch_latest_response") {

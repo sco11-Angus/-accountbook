@@ -12,6 +12,12 @@ public:
     // 保存账单（本地+服务端同步）
     static bool saveBill(const AccountRecord& record);
 
+    // 更新账单（本地+服务端同步）
+    static bool updateBill(const AccountRecord& record);
+
+    // 删除账单（本地+服务端同步）
+    static bool deleteBill(int recordId);
+
     // 获取指定月份账单列表
     static QList<AccountRecord> getMonthlyBills(int userId, const QDate& date);
 

@@ -8,7 +8,10 @@
 #include <QCryptographicHash>
 #include <QMutex>
 
-class UserManager {
+#include <QObject>
+
+class UserManager : public QObject {
+    Q_OBJECT
 public:
     // 单例获取方法
     static UserManager* getInstance();
@@ -36,9 +39,15 @@ public:
     bool resetPassword(const QString& account, const QString& code, const QString& newPwd);
     // 安全退出（清除本地缓存）
     void logout();
+    
+signals:
+    void userChanged(const User& user);
+
+public:
     // 获取当前登录用户
     void setCurrentUser(const User& user) {  // 保存当前登录用户
         m_currentUser = user;
+        emit userChanged(m_currentUser);
     }
 
     User getCurrentUser() { return m_currentUser; }

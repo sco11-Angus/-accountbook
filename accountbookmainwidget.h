@@ -22,7 +22,7 @@ class AccountBookMainWidget : public QWidget
 public:
     QPushButton *m_addBtn;
     explicit AccountBookMainWidget(QWidget *parent = nullptr);
-    void updateBillData(const QList<QMap<QString, QString>>& billList);
+    void updateBillData(const QList<AccountRecord>& records);
 
 private slots:
     void onPrevMonth();

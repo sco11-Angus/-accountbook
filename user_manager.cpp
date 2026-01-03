@@ -16,7 +16,7 @@ UserManager* UserManager::getInstance() {
     return m_instance;
 }
 
-UserManager::UserManager() {
+UserManager::UserManager() : QObject(nullptr) {
     m_dbHelper = SqliteHelper::getInstance();
     m_dbHelper->openDatabase();
 }
