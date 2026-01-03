@@ -31,6 +31,15 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    // 配置邮件发送服务（QQ邮箱）
+    // TODO: 请在这里填写你的QQ邮箱和授权码
+    // 授权码获取方法：登录QQ邮箱网页版 -> 设置 -> 账户 -> 开启SMTP服务 -> 生成授权码
+    QString senderEmail = "123456789@qq.com";  // 改成你的QQ邮箱，例如: 123456789@qq.com
+    QString authCode = "abcdef";        // 改成你的QQ邮箱授权码（不是QQ密码！）
+
+    UserManager::getInstance()->configureEmailSender(senderEmail, authCode);
+    qDebug() << "邮件服务已配置";
+
     // 2. 启动服务端 (监听端口 12345)
     server_main server;
     if (server.startServer(12345)) {

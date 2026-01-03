@@ -3,6 +3,8 @@
 #include "profile_edit_dialog.h"
 #include "bind_dialog.h"
 #include "currency_dialog.h"
+#include "budget_dialog.h"
+#include "budget_manager.h"
 #include <QPainter>
 #include <QIcon>
 #include <QFileDialog>
@@ -30,6 +32,7 @@ void SettingsWidget::initUI()
     m_backBtn->setFixedSize(40, 40);
     m_backBtn->setCursor(Qt::PointingHandCursor);
     m_backBtn->setObjectName("backBtn");
+    m_backBtn->hide(); // 隐藏返回按钮，因为现在是底部导航栏页面
     connect(m_backBtn, &QPushButton::clicked, this, &QWidget::close);
 
     QLabel *titleLabel = new QLabel("设置");
@@ -129,7 +132,10 @@ void SettingsWidget::initUI()
     financeLayout->setSpacing(0);
     financeLayout->setContentsMargins(0, 5, 0, 5);
     
-    financeLayout->addWidget(createSettingItem("💰", "预算设置", "¥0.00"));
+    BudgetInfo budget = BudgetManager::getInstance()->getBudget(currentUser.getId());
+    QPushButton *budgetItem = createSettingItem("💰", "预算设置", QString("¥%1").arg(budget.daily, 0, 'f', 2));
+    connect(budgetItem, &QPushButton::clicked, this, &SettingsWidget::onBudgetClicked);
+    financeLayout->addWidget(budgetItem);
     
     QPushButton *currencyItem = createSettingItem("💵", "货币", "人民币 (CNY)");
     QPushButton *rateItem = createSettingItem("📈", "汇率", "1.0000");
@@ -273,6 +279,21 @@ void SettingsWidget::onEmailClicked()
             QLabel *valLabel = btn->findChild<QLabel*>("valueLabel");
             if (valLabel) valLabel->setText(dlg.getNewValue());
         }
+    }
+}
+
+void SettingsWidget::onBudgetClicked()
+{
+    int userId = UserManager::getInstance()->getCurrentUser().getId();
+    BudgetDialog dlg(userId, this);
+    if (dlg.exec() == QDialog::Accepted) {
+        BudgetInfo budget = BudgetManager::getInstance()->getBudget(userId);
+        QPushButton *btn = qobject_cast<QPushButton*>(sender());
+        if (btn) {
+            QLabel *valLabel = btn->findChild<QLabel*>("valueLabel");
+            if (valLabel) valLabel->setText(QString("¥%1").arg(budget.daily, 0, 'f', 2));
+        }
+        QMessageBox::information(this, "提示", "预算设置已更新");
     }
 }
 

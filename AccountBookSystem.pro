@@ -12,8 +12,12 @@ SOURCES += \
     ai_manager.cpp \
     bill_handler.cpp \
     bill_service.cpp \
+    budget_manager.cpp \
+    budget_dialog.cpp \
     bill_sync_client.cpp \
     db_manager.cpp \
+    email_config_dialog.cpp \
+    email_sender.cpp \
     main.cpp \
     mainwindow.cpp \
     server_main.cpp \
@@ -49,9 +53,13 @@ HEADERS += \
     ai_manager.h \
     bill_handler.h \
     bill_service.h \
+    budget_manager.h \
+    budget_dialog.h \
     bill_sync_client.h \
     db_manager.h \
     db_models.h \
+    email_config_dialog.h \
+    email_sender.h \
     mainwindow.h \
     server_main.h \
     sqlite_helper.h \

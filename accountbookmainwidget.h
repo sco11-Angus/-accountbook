@@ -29,7 +29,6 @@ private slots:
     void onNextMonth();
     void onMonthLabelClicked();
     void onSearchTextChanged(const QString &text);
-    void onUserBtnClicked();
     void onNavButtonClicked();
 
 protected:
@@ -53,16 +52,14 @@ private:
     // 界面堆栈
     QStackedWidget *m_stackedWidget;
     QWidget *m_bookPage;
-    QWidget *m_assetPage;
     StatisticsWidget *m_statisticsPage;
+    SettingsWidget *m_settingsPage;
 
     // 顶部控件
-    QPushButton *m_userBtn;       // 用户按钮
     QLineEdit *m_searchEdit;      // 搜索框
     QPushButton *m_prevMonthBtn;  // 上月按钮
     QLabel *m_monthLabel;         // 月份显示
     QPushButton *m_nextMonthBtn;  // 下月按钮
-    QPushButton *m_calendarBtn;   // 收支日历
 
     // 收支统计卡片
     QFrame *m_statCard;
@@ -75,8 +72,8 @@ private:
 
     // 底部导航
     QPushButton *m_bookNavBtn;    // 账本（默认选中）
-    QPushButton *m_assetNavBtn;   // 资产
     QPushButton *m_statNavBtn;    // 统计
+    QPushButton *m_userNavBtn;    // 我的
 };
 
 #endif // ACCOUNTBOOKMAINWIDGET_H

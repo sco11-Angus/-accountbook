@@ -1,5 +1,7 @@
 #include "accountbookrecordwidget.h"
 #include "bill_service.h"
+#include "budget_manager.h"
+#include <QDebug>
 #include <QFont>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -647,7 +649,20 @@ void AccountBookRecordWidget::createKeyboard()
             return;
         }
 
-        // 7. 创建/更新 AccountRecord 对象
+        // 7. 预算检查（仅对支出进行检查）
+        if (amount < 0) {
+            QString budgetWarning = BudgetManager::getInstance()->checkBudgetExceeded(userId, amount);
+            if (!budgetWarning.isEmpty()) {
+                QMessageBox::StandardButton reply = QMessageBox::warning(this, "预算超额提醒", 
+                    budgetWarning + "\n\n是否继续记账？", 
+                    QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::No) {
+                    return;
+                }
+            }
+        }
+
+        // 8. 创建/更新 AccountRecord 对象
         AccountRecord record;
         if (m_isEditMode) {
             record = m_currentRecord;

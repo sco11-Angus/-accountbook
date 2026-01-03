@@ -15,6 +15,7 @@ class SettingsWidget : public QWidget
     Q_OBJECT
 public:
     explicit SettingsWidget(QWidget *parent = nullptr);
+    void updateProfileDisplay();
 
 private:
     void initUI();
@@ -25,12 +26,11 @@ private:
     // 创建功能板块
     QFrame* createSectionFrame();
 
-    void updateProfileDisplay();
-
 private slots:
     void onProfileClicked();
     void onPhoneClicked();
     void onEmailClicked();
+    void onBudgetClicked();
     void onCurrencyClicked();
     void onRateClicked();
 

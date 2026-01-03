@@ -40,6 +40,11 @@ public:
     // 安全退出（清除本地缓存）
     void logout();
     
+    // 配置邮件发送者
+    void configureEmailSender(const QString& email, const QString& authCode);
+    QString getSenderEmail() const { return m_senderEmail; }
+    QString getAuthCode() const { return m_authCode; }
+    
 signals:
     void userChanged(const User& user);
 
@@ -63,6 +68,9 @@ private:
 
     User m_currentUser;  // 当前登录用户
     SqliteHelper* m_dbHelper;
+    
+    QString m_senderEmail;
+    QString m_authCode;
 };
 
 #endif // USER_MANAGER_H

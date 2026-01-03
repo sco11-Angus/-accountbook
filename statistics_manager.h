@@ -15,12 +15,19 @@ struct CategoryStat {
     QString color;
 };
 
+struct DailyStat {
+    int day;
+    double income;
+    double expense;
+};
+
 struct MonthlyStat {
     double totalIncome;
     double totalExpense;
     double balance;
     QList<CategoryStat> expenseStats;
     QList<CategoryStat> incomeStats;
+    QList<DailyStat> dailyStats;
 };
 
 class StatisticsManager : public QObject

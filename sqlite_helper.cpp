@@ -98,6 +98,18 @@ bool SqliteHelper::openDatabase(const QString& dbPath) {
     executeSql("ALTER TABLE account_record ADD COLUMN is_deleted INTEGER DEFAULT 0");
     executeSql("ALTER TABLE account_record ADD COLUMN delete_time TEXT");
 
+    // 创建预算表
+    QString createBudgetTable = R"(
+        CREATE TABLE IF NOT EXISTS budget (
+            user_id INTEGER PRIMARY KEY,
+            daily_budget REAL DEFAULT 0,
+            monthly_budget REAL DEFAULT 0,
+            yearly_budget REAL DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+        );
+    )";
+    if (!executeSql(createBudgetTable)) return false;
+
     // --- 服务端兼容表结构 ---
     // 创建账本表
     QString createAccountBookTable = R"(

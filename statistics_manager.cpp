@@ -36,6 +36,32 @@ MonthlyStat StatisticsManager::getMonthlyStat(int userId, int year, int month) {
 
     stat.balance = stat.totalIncome - stat.totalExpense;
 
+    // Process Daily Stats
+    int daysInMonth = QDate(year, month, 1).daysInMonth();
+    QMap<int, DailyStat> dailyMap;
+    for (int i = 1; i <= daysInMonth; ++i) {
+        dailyMap[i] = {i, 0, 0};
+    }
+
+    for (const auto& record : records) {
+        QDateTime dt = QDateTime::fromString(record.getCreateTime(), "yyyy-MM-dd HH:mm:ss");
+        if (!dt.isValid()) {
+            dt = QDateTime::fromString(record.getCreateTime(), "yyyy-MM-dd");
+        }
+        if (dt.isValid()) {
+            int day = dt.date().day();
+            double amount = record.getAmount();
+            if (amount < 0) {
+                dailyMap[day].expense += qAbs(amount);
+            } else {
+                dailyMap[day].income += amount;
+            }
+        }
+    }
+    for (int i = 1; i <= daysInMonth; ++i) {
+        stat.dailyStats.append(dailyMap[i]);
+    }
+
     // Process Expense Stats
     for (auto it = expenseMap.begin(); it != expenseMap.end(); ++it) {
         CategoryStat cs;

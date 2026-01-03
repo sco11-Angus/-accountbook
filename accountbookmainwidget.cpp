@@ -235,6 +235,7 @@ AccountBookMainWidget::AccountBookMainWidget(QWidget *parent)
     connect(UserManager::getInstance(), &UserManager::userChanged, this, [this](){
         qDebug() << "检测到用户切换，重新加载账单数据...";
         loadBillsForMonth();
+        if (m_settingsPage) m_settingsPage->updateProfileDisplay();
     });
 
     // 右下角加号：打开独立记账窗口（单独的界面）
@@ -275,31 +276,9 @@ void AccountBookMainWidget::initUI()
     mainLayout->setSpacing(10);
     mainLayout->setContentsMargins(20, 20, 20, 20);
 
-    // 顶部：用户头像按钮 + 搜索框
+    // 顶部：搜索框
     QHBoxLayout *topBarLayout = new QHBoxLayout();
-    m_userBtn = new QPushButton();
-    m_userBtn->setFixedSize(35, 35);
-    m_userBtn->setCursor(Qt::PointingHandCursor);
-    m_userBtn->setObjectName("m_userBtn");
     
-    // 绘制一个白底白边蓝图标的用户头像样式
-    m_userBtn->setStyleSheet(R"(
-        QPushButton#m_userBtn {
-            background-color: white;
-            border-radius: 17px;
-            color: #007AFF;
-            font-size: 22px;
-            font-weight: bold;
-            border: 2px solid white;
-        }
-        QPushButton#m_userBtn:hover {
-            background-color: #F8F9FA;
-            color: #0063CC;
-        }
-    )");
-    m_userBtn->setText("👤"); 
-    topBarLayout->addWidget(m_userBtn);
-
     m_searchEdit = new QLineEdit();
     m_searchEdit->setPlaceholderText("搜索分类、备注...");
     m_searchEdit->setFixedHeight(35);
@@ -308,7 +287,6 @@ void AccountBookMainWidget::initUI()
 
     // 连接搜索框信号
     connect(m_searchEdit, &QLineEdit::textChanged, this, &AccountBookMainWidget::onSearchTextChanged);
-    connect(m_userBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onUserBtnClicked);
 
     // 月份切换栏
     QHBoxLayout *monthBarLayout = new QHBoxLayout();
@@ -332,15 +310,10 @@ void AccountBookMainWidget::initUI()
     m_nextMonthBtn->setCursor(Qt::PointingHandCursor);
     m_nextMonthBtn->setObjectName("m_nextMonthBtn");
     
-    m_calendarBtn = new QPushButton("收支日历");
-    m_calendarBtn->setFixedHeight(30);
-    m_calendarBtn->setObjectName("m_calendarBtn");
-
     monthBarLayout->addWidget(m_prevMonthBtn);
     monthBarLayout->addWidget(m_monthLabel);
     monthBarLayout->addWidget(m_nextMonthBtn);
     monthBarLayout->addStretch();
-    monthBarLayout->addWidget(m_calendarBtn);
     mainLayout->addLayout(monthBarLayout);
 
     // 连接月份切换信号
@@ -437,85 +410,45 @@ void AccountBookMainWidget::initUI()
 
     m_stackedWidget->addWidget(m_bookPage);
     
-        // --- 资产页面 (优化版) ---
-    m_assetPage = new QWidget();
-    m_assetPage->setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #F0F2F5, stop:1 #FFFFFF);");
-    QVBoxLayout *assetLayout = new QVBoxLayout(m_assetPage);
-    assetLayout->setContentsMargins(20, 40, 20, 20);
-    assetLayout->setSpacing(20);
+    // --- 统计页面 ---
+    m_statisticsPage = new StatisticsWidget();
+    m_stackedWidget->addWidget(m_statisticsPage);
 
-    // 资产总览卡片
-    QFrame *assetCard = new QFrame();
-    assetCard->setFixedHeight(150);
-    assetCard->setStyleSheet(R"(
-        QFrame {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4A90E2, stop:1 #357ABD);
-            border-radius: 20px;
-        }
-    )");
-    QVBoxLayout *cardLayout = new QVBoxLayout(assetCard);
-    cardLayout->setContentsMargins(20, 20, 20, 20);
-    
-    QLabel *assetTitle = new QLabel("净资产 (元)");
-    assetTitle->setStyleSheet("color: rgba(255,255,255,0.8); font-size: 14px;");
-    
-    QLabel *assetAmount = new QLabel("¥ 0.00");
-    assetAmount->setStyleSheet("color: white; font-size: 32px; font-weight: bold;");
-    
-    cardLayout->addWidget(assetTitle);
-    cardLayout->addWidget(assetAmount);
-    cardLayout->addStretch();
-    
-    assetLayout->addWidget(assetCard);
-
-    // 功能模块占位
-    QLabel *assetMsg = new QLabel("资产管理模块建设中...");
-    assetMsg->setAlignment(Qt::AlignCenter);
-    assetMsg->setStyleSheet("color: #999; font-size: 16px; margin-top: 40px;");
-    assetLayout->addWidget(assetMsg);
-
-    QLabel *assetHint = new QLabel("即将支持：账户管理、理财统计、借贷管理等");
-    assetHint->setAlignment(Qt::AlignCenter);
-    assetHint->setStyleSheet("color: #BBB; font-size: 13px;");
-    assetLayout->addWidget(assetHint);
-    
-    assetLayout->addStretch();
-
-    m_stackedWidget->addWidget(m_assetPage);
-    
-        // --- 统计页面 ---
-        m_statisticsPage = new StatisticsWidget();
-        m_stackedWidget->addWidget(m_statisticsPage);
+    // --- 用户/设置页面 ---
+    m_settingsPage = new SettingsWidget();
+    m_stackedWidget->addWidget(m_settingsPage);
 
     outerLayout->addWidget(m_stackedWidget);
 
     // 底部导航
     QFrame *navBar = new QFrame();
-    navBar->setFixedHeight(60);
+    navBar->setFixedHeight(45); // 恢复 60 高度
     navBar->setStyleSheet("background-color: white; border-top: 1px solid rgba(0,0,0,0.1);");
     QHBoxLayout *navLayout = new QHBoxLayout(navBar);
+    navLayout->setContentsMargins(0, 0, 0, 15); // 增加底部边距，将文字“顶”上去
+    navLayout->setSpacing(0);
     
     m_bookNavBtn = new QPushButton("账本");
-    m_assetNavBtn = new QPushButton("资产");
     m_statNavBtn = new QPushButton("统计");
+    m_userNavBtn = new QPushButton("我的");
     
     m_bookNavBtn->setCheckable(true);
-    m_assetNavBtn->setCheckable(true);
     m_statNavBtn->setCheckable(true);
+    m_userNavBtn->setCheckable(true);
     m_bookNavBtn->setChecked(true);
     
     m_bookNavBtn->setObjectName("navBtn");
-    m_assetNavBtn->setObjectName("navBtn");
     m_statNavBtn->setObjectName("navBtn");
+    m_userNavBtn->setObjectName("navBtn");
 
     navLayout->addWidget(m_bookNavBtn);
-    navLayout->addWidget(m_assetNavBtn);
     navLayout->addWidget(m_statNavBtn);
+    navLayout->addWidget(m_userNavBtn);
     outerLayout->addWidget(navBar);
 
     connect(m_bookNavBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onNavButtonClicked);
-    connect(m_assetNavBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onNavButtonClicked);
     connect(m_statNavBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onNavButtonClicked);
+    connect(m_userNavBtn, &QPushButton::clicked, this, &AccountBookMainWidget::onNavButtonClicked);
 
     // 右下角加号按钮
     m_addBtn = new QPushButton("+");
@@ -803,29 +736,23 @@ void AccountBookMainWidget::onNavButtonClicked()
 
     // 更新按钮选中状态
     m_bookNavBtn->setChecked(btn == m_bookNavBtn);
-    m_assetNavBtn->setChecked(btn == m_assetNavBtn);
     m_statNavBtn->setChecked(btn == m_statNavBtn);
+    m_userNavBtn->setChecked(btn == m_userNavBtn);
 
     if (btn == m_bookNavBtn) {
         m_stackedWidget->setCurrentWidget(m_bookPage);
         m_addBtn->show();
-    } else if (btn == m_assetNavBtn) {
-        m_stackedWidget->setCurrentWidget(m_assetPage);
-        m_addBtn->hide();
     } else if (btn == m_statNavBtn) {
         m_stackedWidget->setCurrentWidget(m_statisticsPage);
         m_addBtn->hide();
         // 从 UserManager 获取当前用户 ID
         int userId = UserManager::getInstance()->getCurrentUser().getId();
         m_statisticsPage->updateData(userId, m_currentDate.year(), m_currentDate.month());
+    } else if (btn == m_userNavBtn) {
+        m_stackedWidget->setCurrentWidget(m_settingsPage);
+        m_addBtn->hide();
+        m_settingsPage->updateProfileDisplay();
     }
-}
-
-void AccountBookMainWidget::onUserBtnClicked()
-{
-    SettingsWidget *settings = new SettingsWidget();
-    settings->setAttribute(Qt::WA_DeleteOnClose);
-    settings->show();
 }
 
 void AccountBookMainWidget::initStyleSheet()
@@ -854,11 +781,6 @@ void AccountBookMainWidget::initStyleSheet()
             border: none;
             font-size: 14px;
             color: #5D5D5D;
-        }
-        QPushButton#m_calendarBtn {
-            background-color: rgba(255, 255, 255, 0.8);
-            border-radius: 10px;
-            padding: 0 10px;
         }
         QPushButton#m_prevMonthBtn, QPushButton#m_nextMonthBtn {
             font-size: 18px;
@@ -896,6 +818,7 @@ void AccountBookMainWidget::initStyleSheet()
             color: #666;
             font-size: 14px;
             font-weight: 500;
+            height: 45px; /* 文字部分保持 45px 高度 */
         }
         QPushButton#navBtn:checked {
             color: #FFD700;

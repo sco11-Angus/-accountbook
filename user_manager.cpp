@@ -180,3 +180,8 @@ void UserManager::logout() {
     m_currentUser = User();
     // 实际项目中需清除本地加密存储的密码、登录凭证等
 }
+
+void UserManager::configureEmailSender(const QString& email, const QString& authCode) {
+    m_senderEmail = email;
+    m_authCode = authCode;
+}

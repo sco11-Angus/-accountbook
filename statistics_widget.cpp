@@ -14,13 +14,33 @@ StatisticsWidget::StatisticsWidget(QWidget *parent) : QWidget(parent)
 void StatisticsWidget::initUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 20, 20, 20);
+    mainLayout->setContentsMargins(20, 10, 20, 20);
     mainLayout->setSpacing(15);
 
-    // Title
+    // Header with Month Switcher
+    QHBoxLayout *headerLayout = new QHBoxLayout();
     m_titleLabel = new QLabel("收支统计");
-    m_titleLabel->setStyleSheet("font-size: 24px; font-weight: bold; color: #333;");
-    mainLayout->addWidget(m_titleLabel);
+    m_titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #333;");
+    headerLayout->addWidget(m_titleLabel);
+    headerLayout->addStretch();
+
+    m_prevMonthBtn = new QPushButton("<");
+    m_monthLabel = new QLabel("2024-01");
+    m_nextMonthBtn = new QPushButton(">");
+    
+    QString monthBtnStyle = "QPushButton { border: none; background: #eee; border-radius: 12px; width: 24px; height: 24px; font-weight: bold; } "
+                           "QPushButton:hover { background: #ddd; }";
+    m_prevMonthBtn->setStyleSheet(monthBtnStyle);
+    m_nextMonthBtn->setStyleSheet(monthBtnStyle);
+    m_monthLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #555; margin: 0 10px;");
+
+    headerLayout->addWidget(m_prevMonthBtn);
+    headerLayout->addWidget(m_monthLabel);
+    headerLayout->addWidget(m_nextMonthBtn);
+    mainLayout->addLayout(headerLayout);
+
+    connect(m_prevMonthBtn, &QPushButton::clicked, this, &StatisticsWidget::onPrevMonth);
+    connect(m_nextMonthBtn, &QPushButton::clicked, this, &StatisticsWidget::onNextMonth);
 
     // Summary Card
     QFrame *summaryCard = new QFrame();
@@ -44,6 +64,12 @@ void StatisticsWidget::initUI()
     summaryLayout->addLayout(subSummaryLayout);
     
     mainLayout->addWidget(summaryCard);
+
+    // Daily Chart
+    m_chartWidget = new ChartWidget();
+    m_chartWidget->setFixedHeight(150);
+    m_chartWidget->setStyleSheet("background: white; border-radius: 15px;");
+    mainLayout->addWidget(m_chartWidget);
 
     // Tab Buttons
     QHBoxLayout *tabLayout = new QHBoxLayout();
@@ -113,14 +139,101 @@ void StatisticsWidget::updateData(int userId, int year, int month)
     m_currentUserId = userId;
     m_currentYear = year;
     m_currentMonth = month;
-    
+    m_monthLabel->setText(QString("%1-%2").arg(year).arg(month, 2, 10, QChar('0')));
+
     MonthlyStat stat = StatisticsManager::getInstance()->getMonthlyStat(userId, year, month);
     
     m_totalExpenseLabel->setText(QString("总支出 ¥%1").arg(QString::number(stat.totalExpense, 'f', 2)));
     m_totalIncomeLabel->setText(QString("总收入 ¥%1").arg(QString::number(stat.totalIncome, 'f', 2)));
     m_balanceLabel->setText(QString("月结余 ¥%1").arg(QString::number(stat.balance, 'f', 2)));
-    
+
+    updateChart(stat.dailyStats);
     refreshList(stat);
+}
+
+void StatisticsWidget::updateChart(const QList<DailyStat>& dailyStats)
+{
+    m_dailyStats = dailyStats;
+    m_maxDailyAmount = 0;
+    for (const auto& ds : dailyStats) {
+        m_maxDailyAmount = qMax(m_maxDailyAmount, qMax(ds.income, ds.expense));
+    }
+    m_chartWidget->setDailyStats(dailyStats, m_maxDailyAmount);
+}
+
+void ChartWidget::paintEvent(QPaintEvent *event)
+{
+    QWidget::paintEvent(event);
+    
+    if (m_dailyStats.isEmpty()) return;
+
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    int padding = 15;
+    int chartContentWidth = width() - 2 * padding;
+    int chartContentHeight = height() - 2 * padding - 15;
+    int xStart = padding;
+    int yBottom = height() - padding - 15;
+
+    int dayCount = m_dailyStats.size();
+    float barWidth = (float)chartContentWidth / dayCount;
+    float gap = barWidth * 0.2f;
+    float actualBarWidth = barWidth - gap;
+
+    for (int i = 0; i < dayCount; ++i) {
+        const auto& ds = m_dailyStats[i];
+        float x = xStart + i * barWidth;
+
+        // Draw Expense Bar (Red)
+        if (ds.expense > 0 && m_maxDailyAmount > 0) {
+            float h = (ds.expense / m_maxDailyAmount) * chartContentHeight;
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(QColor("#FF6B6B"));
+            painter.drawRoundedRect(QRectF(x, yBottom - h, actualBarWidth, h), 2, 2);
+        }
+
+        // Draw Income Bar (Green)
+        if (ds.income > 0 && m_maxDailyAmount > 0) {
+            float h = (ds.income / m_maxDailyAmount) * chartContentHeight;
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(QColor("#4CAF50"));
+            // Thinner and slightly offset
+            painter.drawRoundedRect(QRectF(x + actualBarWidth * 0.4f, yBottom - h, actualBarWidth * 0.5f, h), 1, 1);
+        }
+        
+        // Draw day labels every 5 days
+        if (ds.day == 1 || ds.day == 10 || ds.day == 20 || ds.day == dayCount) {
+            painter.setPen(QColor("#999"));
+            painter.setFont(QFont("Microsoft YaHei", 7));
+            painter.drawText(QRectF(x - 5, yBottom + 2, barWidth + 10, 15), Qt::AlignCenter, QString::number(ds.day));
+        }
+    }
+}
+
+void StatisticsWidget::onPrevMonth()
+{
+    m_currentMonth--;
+    if (m_currentMonth < 1) {
+        m_currentMonth = 12;
+        m_currentYear--;
+    }
+    updateData(m_currentUserId, m_currentYear, m_currentMonth);
+}
+
+void StatisticsWidget::onNextMonth()
+{
+    m_currentMonth++;
+    if (m_currentMonth > 12) {
+        m_currentMonth = 1;
+        m_currentYear++;
+    }
+    updateData(m_currentUserId, m_currentYear, m_currentMonth);
+}
+
+void StatisticsWidget::paintEvent(QPaintEvent *event)
+{
+    QWidget::paintEvent(event);
 }
 
 void StatisticsWidget::refreshList(const MonthlyStat& stat)
