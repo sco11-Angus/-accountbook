@@ -22,8 +22,9 @@ public:
     BudgetInfo getBudget(int userId);
     
     // 检查预算是否超额
+    // checkDate: 要检查的日期（如果不指定则默认为当前日期）
     // 返回超额的类型描述，如果不超额则返回空字符串
-    QString checkBudgetExceeded(int userId, double currentAmount);
+    QString checkBudgetExceeded(int userId, double currentAmount, const QDateTime& checkDate = QDateTime::currentDateTime());
 
 private:
     BudgetManager();

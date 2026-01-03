@@ -46,18 +46,17 @@ BudgetInfo BudgetManager::getBudget(int userId) {
     return info;
 }
 
-QString BudgetManager::checkBudgetExceeded(int userId, double newAmount) {
+QString BudgetManager::checkBudgetExceeded(int userId, double newAmount, const QDateTime& checkDate) {
     if (newAmount >= 0) return ""; // 收入不触发预算检查
 
     BudgetInfo budget = getBudget(userId);
     if (budget.daily <= 0 && budget.monthly <= 0 && budget.yearly <= 0) return "";
 
-    QDateTime now = QDateTime::currentDateTime();
     double absNewAmount = qAbs(newAmount);
 
     // 1. 检查日预算
     if (budget.daily > 0) {
-        QString dateStr = now.toString("yyyy-MM-dd");
+        QString dateStr = checkDate.toString("yyyy-MM-dd");
         QString sql = QString(R"(
             SELECT SUM(ABS(amount)) FROM account_record 
             WHERE user_id = %1 AND amount < 0 AND is_deleted = 0 
@@ -68,14 +67,14 @@ QString BudgetManager::checkBudgetExceeded(int userId, double newAmount) {
         if (query.next()) currentDaily = query.value(0).toDouble();
         
         if (currentDaily + absNewAmount > budget.daily) {
-            return QString("日预算超额！\n今日已支出: ¥%1\n当前记账: ¥%2\n日预算限额: ¥%3")
-                .arg(currentDaily, 0, 'f', 2).arg(absNewAmount, 0, 'f', 2).arg(budget.daily, 0, 'f', 2);
+            return QString("【%1】日预算超额！\n该日已支出: ¥%2\n当前记账: ¥%3\n日预算限额: ¥%4")
+                .arg(dateStr).arg(currentDaily, 0, 'f', 2).arg(absNewAmount, 0, 'f', 2).arg(budget.daily, 0, 'f', 2);
         }
     }
 
     // 2. 检查月预算
     if (budget.monthly > 0) {
-        QString monthStr = now.toString("yyyy-MM");
+        QString monthStr = checkDate.toString("yyyy-MM");
         QString sql = QString(R"(
             SELECT SUM(ABS(amount)) FROM account_record 
             WHERE user_id = %1 AND amount < 0 AND is_deleted = 0 
@@ -86,14 +85,14 @@ QString BudgetManager::checkBudgetExceeded(int userId, double newAmount) {
         if (query.next()) currentMonthly = query.value(0).toDouble();
         
         if (currentMonthly + absNewAmount > budget.monthly) {
-            return QString("月预算超额！\n本月已支出: ¥%1\n当前记账: ¥%2\n月预算限额: ¥%3")
-                .arg(currentMonthly, 0, 'f', 2).arg(absNewAmount, 0, 'f', 2).arg(budget.monthly, 0, 'f', 2);
+            return QString("【%1】月预算超额！\n该月已支出: ¥%2\n当前记账: ¥%3\n月预算限额: ¥%4")
+                .arg(monthStr).arg(currentMonthly, 0, 'f', 2).arg(absNewAmount, 0, 'f', 2).arg(budget.monthly, 0, 'f', 2);
         }
     }
 
     // 3. 检查年预算
     if (budget.yearly > 0) {
-        QString yearStr = now.toString("yyyy");
+        QString yearStr = checkDate.toString("yyyy");
         QString sql = QString(R"(
             SELECT SUM(ABS(amount)) FROM account_record 
             WHERE user_id = %1 AND amount < 0 AND is_deleted = 0 
@@ -104,8 +103,8 @@ QString BudgetManager::checkBudgetExceeded(int userId, double newAmount) {
         if (query.next()) currentYearly = query.value(0).toDouble();
         
         if (currentYearly + absNewAmount > budget.yearly) {
-            return QString("年预算超额！\n今年已支出: ¥%1\n当前记账: ¥%2\n年预算限额: ¥%3")
-                .arg(currentYearly, 0, 'f', 2).arg(absNewAmount, 0, 'f', 2).arg(budget.yearly, 0, 'f', 2);
+            return QString("【%1】年预算超额！\n该年已支出: ¥%2\n当前记账: ¥%3\n年预算限额: ¥%4")
+                .arg(yearStr).arg(currentYearly, 0, 'f', 2).arg(absNewAmount, 0, 'f', 2).arg(budget.yearly, 0, 'f', 2);
         }
     }
 

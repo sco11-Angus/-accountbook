@@ -651,7 +651,7 @@ void AccountBookRecordWidget::createKeyboard()
 
         // 7. 预算检查（仅对支出进行检查）
         if (amount < 0) {
-            QString budgetWarning = BudgetManager::getInstance()->checkBudgetExceeded(userId, amount);
+            QString budgetWarning = BudgetManager::getInstance()->checkBudgetExceeded(userId, amount, m_currentDateTime);
             if (!budgetWarning.isEmpty()) {
                 QMessageBox::StandardButton reply = QMessageBox::warning(this, "预算超额提醒", 
                     budgetWarning + "\n\n是否继续记账？", 
